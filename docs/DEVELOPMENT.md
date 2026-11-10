@@ -1,6 +1,13 @@
-# 91-web
+# 91-web-nostalgic
 
-官方视频前台与管理后台。独立调用 `91` 后端，仓库地址为 `nianzhibai/91-web`。
+怀旧版视频前台与管理后台：功能与 `nianzhibai/91-web` 保持一致，视觉沿用主题重设计之前（`91` 仓库提交 `3939455e`）的暖橙暗色和樱花粉亮色。
+
+| 后端主题 | 怀旧版外观 |
+| --- | --- |
+| `dark` | 暗黑 + 暖橙 |
+| `light` | 奶油白 + 樱花粉 |
+
+旧版的星空蓝主题及星星动图未保留，因为后端只支持 `dark` 和 `light`。浏览器里保存的旧 `pink`、`sky` 值按 `light` 显示。
 
 ## 开发
 
@@ -33,7 +40,7 @@ npm run package
 
 产物为 `release/frontend.tar.gz` 和 `release/frontend.tar.gz.sha256`。压缩包根目录包含 `frontend.json`、`index.html` 和资源目录。
 
-`package.json` 决定前端版本，`frontend-package.json` 声明名称和支持的 API 范围。资源地址带名称和版本，例如 `/_frontend/91-web/1.0.0/assets/...`；页面路由仍从 `/` 开始。每次改变发布内容都应增加版本，避免旧页面读取到其他版本的资源。
+`package.json` 决定前端版本，`frontend-package.json` 声明名称和支持的 API 范围。资源地址带名称和版本，例如 `/_frontend/91-web-nostalgic/1.0.0/assets/...`；页面路由仍从 `/` 开始。每次改变发布内容都应增加版本，避免旧页面读取到其他版本的资源。
 
 推送与包版本一致的 `vX.Y.Z` 标签会触发测试、构建和 GitHub Release。已发布版本不能覆盖。GitHub 自动生成的源码压缩包不能用于安装前端。
 

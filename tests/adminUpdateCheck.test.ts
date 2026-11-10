@@ -23,6 +23,18 @@ test("home, theme, update, and logout are layout-level global actions", () => {
   assert.match(adminCss, /\.admin-global-actions\s*\{[^}]*position:\s*fixed;[^}]*backdrop-filter:\s*blur\(16px\)/s);
 });
 
+test("desktop theme popover fits exactly one row of theme options", () => {
+  const options = globalActionsSource.match(/const THEME_OPTIONS[^=]*=\s*\[([\s\S]*?)\];/);
+  assert.ok(options, "missing THEME_OPTIONS");
+  const optionCount = options[1].match(/\bid:/g)?.length;
+  // The first rules are the desktop ones; mobile overrides follow in media queries.
+  const popover = adminCss.match(/\.admin-theme-popover\s*\{([^}]*)\}/)?.[1] ?? "";
+  const grid = adminCss.match(/\.admin-theme-popover__grid\s*\{([^}]*)\}/)?.[1] ?? "";
+  assert.equal(optionCount, 2);
+  assert.match(grid, new RegExp(`grid-template-columns\\s*:\\s*repeat\\(${optionCount},`));
+  assert.match(popover, /width\s*:\s*min\(360px,/);
+});
+
 test("system navigation orders backup, logs, then settings", () => {
   assert.match(
     layoutSource,

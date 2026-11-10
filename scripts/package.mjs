@@ -26,7 +26,7 @@ function walk(directory) {
   }
 }
 walk(dist);
-const temporary = mkdtempSync(join(tmpdir(), "91-web-package-"));
+const temporary = mkdtempSync(join(tmpdir(), "91-web-nostalgic-package-"));
 try {
   const fileList = join(temporary, "files");
   writeFileSync(fileList, files.sort().join("\0") + "\0");

@@ -1,15 +1,15 @@
 /* =========================================================
  * Design Tokens
  *
- * 两套主题：
- *   [data-theme="dark"]  暗色（默认 / 兜底）
- *   [data-theme="light"]  亮色
+ * 两套主题，与后端主题设置一一对应：
+ *   [data-theme="dark"]   暗黑 + 暖橙（默认 / 兜底）
+ *   [data-theme="light"]  奶油白 + 樱花粉
  *
  * 切换方式：
  *   document.documentElement.setAttribute("data-theme", "dark" | "light")
  *
  * 设计约束：
- *   - 两套主题与选择器预览共用 token，组件使用语义颜色
+ *   - 两套用相同的 token key，组件 CSS 一行不动
  *   - 间距 / 圆角 / 字号 / 过渡等"非主题"变量挂在 :root
  * ========================================================= */
 
@@ -77,69 +77,69 @@
 }
 
 /* =========================================================
- * 暗色（默认）
+ * 暗黑 + 暖橙（默认）
  * 兜底：未声明 data-theme 时也走这套
  * ========================================================= */
 :root,
-.theme-card[data-preview="dark"] .theme-card__preview,
 :root[data-theme="dark"] {
-  color-scheme: dark;
-  --bg-hover: rgba(220, 222, 225, 0.05);
-  --scrollbar-thumb: rgba(220, 222, 225, 0.2);
-  --scrollbar-thumb-hover: rgba(220, 222, 225, 0.34);
-
   /* ----- 表面色（三层灰阶，从最深到最浅） ----- */
-  --bg-page: #111214;
-  --bg-surface: #1b1d20;
-  --bg-elevated: #25282c;
-  --bg-sunken: #141619;
-  --bg-skeleton: #30343a;
-  --bg-overlay: rgba(12, 13, 14, 0.68);
+  --bg-page: #0b0c10;
+  --bg-surface: #14161c;
+  --bg-elevated: #1b1e26;
+  --bg-sunken: #0a0b0f;
+  --bg-skeleton: #252831;
+  --bg-overlay: rgba(8, 9, 13, 0.78);
 
   /* 半透明玻璃 */
-  --glass-nav: rgba(17, 18, 20, 0.96);
-  --glass-card: rgba(27, 29, 32, 0.96);
+  --glass-nav: rgba(13, 14, 19, 0.78);
+  --glass-card: rgba(20, 22, 28, 0.72);
+  --glass-sidebar-highlight: rgba(255, 255, 255, 0.08);
+  --glass-sidebar-border: rgba(255, 255, 255, 0.11);
+  --glass-sidebar-shadow: rgba(0, 0, 0, 0.28);
 
   /* ----- 边框 ----- */
-  --border-subtle: rgba(220, 222, 225, 0.07);
-  --border-default: rgba(220, 222, 225, 0.12);
-  --border-strong: rgba(220, 222, 225, 0.22);
-  --border-accent: rgba(225, 228, 232, 0.32);
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-default: rgba(255, 255, 255, 0.09);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --border-accent: rgba(255, 138, 60, 0.45);
 
   /* ----- 文本 ----- */
-  --text-strong: #f0f1f3;
-  --text-default: #d2d5da;
-  --text-muted: #a4a9b2;
-  --text-faint: #9097a1;
-  --text-disabled: #69717c;
-  --text-on-accent: #202328;
+  --text-strong: #f5f5f7;
+  --text-default: #d8d9de;
+  --text-muted: #9a9ba4;
+  --text-faint: #6c6e78;
+  --text-disabled: #4a4c55;
+  --text-on-accent: #1a0f04;
   --text-on-dark: #ffffff;
-  --video-link-color: var(--text-strong);
+  --video-link-color: #ff8800;
 
-  /* ----- 主色（银白） ----- */
-  --accent: #e1e4e8;
-  --accent-hover: #f0f1f3;
-  --accent-strong: #cbd0d7;
-  --accent-soft: rgba(225, 228, 232, 0.1);
-  --accent-softer: rgba(225, 228, 232, 0.045);
+  /* ----- 主色（暖橙） ----- */
+  --accent: #ff8a3c;
+  --accent-hover: #ffa05f;
+  --accent-strong: #ff7720;
+  --accent-soft: rgba(255, 138, 60, 0.14);
+  --accent-softer: rgba(255, 138, 60, 0.08);
+  --accent-glow: rgba(255, 138, 60, 0.3);
+  --accent-gradient: linear-gradient(135deg, #ff9a55 0%, #ff7322 100%);
+  --accent-gradient-strong: linear-gradient(135deg, #ffae6e 0%, #ff7322 60%, #f15f0d 100%);
 
   /* ----- 状态色 ----- */
-  --success: #89b4a0;
-  --success-soft: rgba(137, 180, 160, 0.1);
-  --warning: #c2aa7e;
-  --warning-soft: rgba(194, 170, 126, 0.1);
-  --danger: #d3999f;
-  --danger-soft: rgba(211, 153, 159, 0.1);
-  --info: #98abc5;
-  --info-soft: rgba(152, 171, 197, 0.1);
+  --success: #3fcf8e;
+  --success-soft: rgba(63, 207, 142, 0.14);
+  --warning: #f5b54a;
+  --warning-soft: rgba(245, 181, 74, 0.14);
+  --danger: #f1556c;
+  --danger-soft: rgba(241, 85, 108, 0.14);
+  --info: #5aa2ff;
+  --info-soft: rgba(90, 162, 255, 0.14);
 
-  /* ----- 标签来源徽标（深底浅字，降低次要信息的亮度） ----- */
-  --tag-source-user-bg: #20342c;
-  --tag-source-user-fg: #9dc9b2;
-  --tag-source-generated-bg: #362f22;
-  --tag-source-generated-fg: #d5b680;
-  --tag-source-crawler-bg: #302b3e;
-  --tag-source-crawler-fg: #c0aedc;
+  /* ----- 标签来源徽标（三套主题统一使用不透明淡色底） ----- */
+  --tag-source-user-bg: #dff3ec;
+  --tag-source-user-fg: #126b47;
+  --tag-source-generated-bg: #f9eddc;
+  --tag-source-generated-fg: #7a4a00;
+  --tag-source-crawler-bg: #eeeafc;
+  --tag-source-crawler-fg: #62429b;
 
   /* ----- 网盘品牌色 ----- */
   --drive-quark: #5b8def;
@@ -154,78 +154,91 @@
   --drive-localstorage: #35b88f;
 
   /* ----- 阴影 ----- */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.12);
-  --shadow-md: 0 3px 10px rgba(0, 0, 0, 0.16);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.2);
-  --shadow-xl: 0 12px 36px rgba(0, 0, 0, 0.24);
-  --shadow-selected: 0 0 0 1px var(--border-accent);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md:
+    0 2px 4px rgba(0, 0, 0, 0.3),
+    0 6px 16px rgba(0, 0, 0, 0.32);
+  --shadow-lg:
+    0 4px 8px rgba(0, 0, 0, 0.32),
+    0 16px 36px rgba(0, 0, 0, 0.4);
+  --shadow-xl:
+    0 8px 16px rgba(0, 0, 0, 0.32),
+    0 24px 60px rgba(0, 0, 0, 0.5);
+  --shadow-glow: 0 0 0 1px var(--border-accent), 0 8px 28px var(--accent-glow);
+  --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+/* 暗黑主题：只保留低对比度网格，不叠加局部光晕。 */
+:root body::before,
+:root[data-theme="dark"] body::before {
+  background:
+    linear-gradient(to right, rgba(255, 138, 60, 0.09) 1px, transparent 1px) 0 0 / 88px 88px,
+    linear-gradient(to bottom, rgba(255, 138, 60, 0.09) 1px, transparent 1px) 0 0 / 88px 88px;
 }
 
 /* =========================================================
- * 亮色
- * 中性白与灰阶层次，按钮和文字保持清晰对比。
+ * 奶油白 + 樱花粉
+ *
+ * 设计要点：
+ *   - 页底用奶油白（带一点点粉的暖白），不用纯白避免刺眼
+ *   - 卡片层往上提亮到纯白；浮起层用淡粉
+ *   - 主色樱花粉（#ff5b8a），比玫粉冷，比草莓粉柔
+ *   - 文本用深咖紫（#2a1820）而非纯黑，氛围更柔
+ *   - 边框 / 阴影都改成"暗色描边 / 柔粉投影"，不要照搬暗色的"提亮描边"
  * ========================================================= */
-.theme-card[data-preview="light"] .theme-card__preview,
 :root[data-theme="light"] {
-  color-scheme: light;
-  --bg-hover: rgba(49, 52, 58, 0.04);
-  --scrollbar-thumb: rgba(49, 52, 58, 0.23);
-  --scrollbar-thumb-hover: rgba(49, 52, 58, 0.38);
-
   /* ----- 表面色 ----- */
-  --bg-page: #f3f4f6;
+  --bg-page: #fff5f7;
   --bg-surface: #ffffff;
-  --bg-elevated: #f0f2f5;
-  --bg-sunken: #f6f7f9;
-  --bg-skeleton: #e2e5e9;
-  --bg-overlay: rgba(20, 22, 25, 0.42);
+  --bg-elevated: #ffe9ee;
+  --bg-sunken: #fbeaef;
+  --bg-skeleton: #f3e5ea;
+  --bg-overlay: rgba(255, 240, 244, 0.82);
 
-  /* 半透明表面 */
-  --glass-nav: rgba(243, 244, 246, 0.96);
-  --glass-card: rgba(255, 255, 255, 0.96);
+  /* 半透明玻璃（白底叠透明粉） */
+  --glass-nav: rgba(255, 250, 252, 0.78);
+  --glass-card: rgba(255, 255, 255, 0.72);
+  --glass-sidebar-highlight: rgba(255, 255, 255, 0.58);
+  --glass-sidebar-border: rgba(255, 91, 138, 0.18);
+  --glass-sidebar-shadow: rgba(180, 90, 120, 0.14);
 
   /* ----- 边框（暗色描边） ----- */
-  --border-subtle: rgba(49, 52, 58, 0.07);
-  --border-default: rgba(49, 52, 58, 0.12);
-  --border-strong: rgba(49, 52, 58, 0.22);
-  --border-accent: rgba(48, 54, 64, 0.3);
+  --border-subtle: rgba(255, 91, 138, 0.1);
+  --border-default: rgba(255, 91, 138, 0.18);
+  --border-strong: rgba(120, 50, 80, 0.24);
+  --border-accent: rgba(255, 91, 138, 0.55);
 
   /* ----- 文本 ----- */
-  --text-strong: #1f2329;
-  --text-default: #414853;
-  --text-muted: #606975;
-  --text-faint: #656e7b;
-  --text-disabled: #a4a9b1;
+  --text-strong: #2a1820;
+  --text-default: #4a3a44;
+  --text-muted: #8a6e78;
+  --text-faint: #b7a3ac;
+  --text-disabled: #d6c5cc;
   --text-on-accent: #ffffff;
-  --text-on-dark: #ffffff;
-  --video-link-color: var(--text-strong);
+  --text-on-dark: #2a1820;
+  --video-link-color: #ff5b8a;
 
-  /* ----- 主色（石墨灰） ----- */
-  --accent: #303640;
-  --accent-hover: #20252d;
-  --accent-strong: #20252d;
-  --accent-soft: rgba(48, 54, 64, 0.075);
-  --accent-softer: rgba(48, 54, 64, 0.035);
+  /* ----- 主色（樱花粉） ----- */
+  --accent: #ff5b8a;
+  --accent-hover: #ff7aa2;
+  --accent-strong: #f43d75;
+  --accent-soft: rgba(255, 91, 138, 0.14);
+  --accent-softer: rgba(255, 91, 138, 0.08);
+  --accent-glow: rgba(255, 91, 138, 0.28);
+  --accent-gradient: linear-gradient(135deg, #ffb1c7 0%, #ff5b8a 100%);
+  --accent-gradient-strong: linear-gradient(135deg, #ffc1d4 0%, #ff5b8a 55%, #f43d75 100%);
 
-  /* ----- 状态色（亮色底下加深） ----- */
-  --success: #24734f;
-  --success-soft: rgba(36, 115, 79, 0.09);
-  --warning: #8c601b;
-  --warning-soft: rgba(140, 96, 27, 0.09);
-  --danger: #b82f49;
-  --danger-soft: rgba(184, 47, 73, 0.09);
-  --info: #3665ab;
-  --info-soft: rgba(54, 101, 171, 0.09);
+  /* ----- 状态色（粉白底下要稍稍加深） ----- */
+  --success: #1ea974;
+  --success-soft: rgba(30, 169, 116, 0.14);
+  --warning: #d99022;
+  --warning-soft: rgba(217, 144, 34, 0.16);
+  --danger: #e43b5c;
+  --danger-soft: rgba(228, 59, 92, 0.14);
+  --info: #3479d6;
+  --info-soft: rgba(52, 121, 214, 0.14);
 
-  /* ----- 标签来源徽标（浅底深字） ----- */
-  --tag-source-user-bg: #e8f2ed;
-  --tag-source-user-fg: #32664c;
-  --tag-source-generated-bg: #f5eedf;
-  --tag-source-generated-fg: #7e602b;
-  --tag-source-crawler-bg: #eeeaf5;
-  --tag-source-crawler-fg: #6d558f;
-
-  /* ----- 网盘品牌色（亮色基底下加深） ----- */
+  /* ----- 网盘品牌色（粉白基底下重新调谐，整体柔化、降饱和） ----- */
   --drive-quark: #4f7be0;
   --drive-p115: #e0556a;
   --drive-p123: #1596a8;
@@ -237,51 +250,135 @@
   --drive-webdav: #208aa8;
   --drive-localstorage: #239978;
 
-  /* ----- 阴影（轻量中性投影） ----- */
-  --shadow-sm: 0 1px 2px rgba(24, 26, 29, 0.035);
-  --shadow-md: 0 3px 10px rgba(24, 26, 29, 0.05);
-  --shadow-lg: 0 8px 24px rgba(24, 26, 29, 0.065);
-  --shadow-xl: 0 12px 36px rgba(24, 26, 29, 0.08);
-  --shadow-selected: 0 0 0 1px var(--border-accent);
+  /* ----- 阴影（粉色柔投影 + 一层中性） ----- */
+  --shadow-sm: 0 1px 2px rgba(180, 90, 120, 0.08);
+  --shadow-md:
+    0 2px 4px rgba(180, 90, 120, 0.08),
+    0 8px 20px rgba(180, 90, 120, 0.1);
+  --shadow-lg:
+    0 4px 10px rgba(180, 90, 120, 0.1),
+    0 18px 40px rgba(180, 90, 120, 0.14);
+  --shadow-xl:
+    0 8px 16px rgba(180, 90, 120, 0.1),
+    0 28px 60px rgba(180, 90, 120, 0.18);
+  --shadow-glow: 0 0 0 1px var(--border-accent), 0 8px 28px var(--accent-glow);
+  --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
 
-/* 侧栏状态跟随当前主题，避免浅色主题继承暗色描边。 */
+/* 粉白主题：只保留柔粉网格，不叠加局部光晕。 */
+:root[data-theme="light"] body::before {
+  background:
+    linear-gradient(to right, rgba(255, 91, 138, 0.13) 1px, transparent 1px) 0 0 / 82px 82px,
+    linear-gradient(to bottom, rgba(255, 91, 138, 0.13) 1px, transparent 1px) 0 0 / 82px 82px;
+}
+
+/* 粉白主题下，自定义滚动条（base.css 用了硬编码白色透明） */
+:root[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: rgba(180, 90, 120, 0.22);
+}
+@media (hover: hover) and (pointer: fine) {
+  :root[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
+    background: rgba(180, 90, 120, 0.36);
+  }
+}
+:root[data-theme="light"] * {
+  scrollbar-color: rgba(180, 90, 120, 0.28) transparent;
+}
+
+:root .app-shell,
+:root .admin-shell,
+:root .admin-main,
+:root .admin-login,
+:root .admin-loading-screen {
+  position: relative;
+  z-index: 1;
+}
+
 @media (min-width: 769px) {
-  :root .admin-sidebar__brand {
-    border-color: var(--border-subtle);
+  :root .admin-sidebar__brand,
+  :root[data-theme="dark"] .admin-sidebar__brand {
+    border-color: rgba(255, 255, 255, 0.07);
   }
 
-  :root .admin-nav__icon {
-    background: var(--bg-hover);
-    border-color: var(--border-subtle);
+  :root .admin-nav__icon,
+  :root[data-theme="dark"] .admin-nav__icon {
+    background: rgba(255, 255, 255, 0.055);
+    border-color: rgba(255, 255, 255, 0.08);
   }
 
   @media (hover: hover) and (pointer: fine) {
-    :root .admin-nav__link:hover {
-      background: var(--bg-hover);
-      border-color: var(--border-default);
-      box-shadow: var(--shadow-sm);
+    :root .admin-nav__link:hover,
+    :root[data-theme="dark"] .admin-nav__link:hover {
+      background: rgba(255, 255, 255, 0.055);
+      border-color: rgba(255, 138, 60, 0.065);
+      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.18);
     }
 
-    :root .admin-nav__link:hover .admin-nav__icon {
-      background: var(--bg-elevated);
-      border-color: var(--border-default);
+    :root .admin-nav__link:hover .admin-nav__icon,
+    :root[data-theme="dark"] .admin-nav__link:hover .admin-nav__icon {
+      background: rgba(255, 255, 255, 0.085);
+      border-color: rgba(255, 255, 255, 0.13);
     }
   }
 
-  :root .admin-nav__link.is-active {
-    background: var(--accent-soft);
-    border-color: var(--border-accent);
-    box-shadow: none;
+  :root .admin-nav__link.is-active,
+  :root[data-theme="dark"] .admin-nav__link.is-active {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 138, 60, 0.14);
+    box-shadow:
+      0 10px 26px rgba(0, 0, 0, 0.22),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08);
   }
 
-  :root .admin-nav__link.is-active .admin-nav__title {
-    color: var(--accent);
+  :root .admin-nav__link.is-active .admin-nav__icon,
+  :root[data-theme="dark"] .admin-nav__link.is-active .admin-nav__icon {
+    background: rgba(255, 138, 60, 0.07);
+    border-color: rgba(255, 138, 60, 0.2);
+    color: rgba(255, 176, 112, 0.76);
   }
 
-  :root .admin-nav__link.is-active .admin-nav__icon {
-    background: var(--accent-soft);
-    border-color: var(--border-accent);
-    color: var(--accent);
+  :root[data-theme="light"] .admin-sidebar__brand {
+    border-color: rgba(255, 91, 138, 0.11);
   }
+
+  :root[data-theme="light"] .admin-nav__icon {
+    background: rgba(255, 255, 255, 0.38);
+    border-color: rgba(255, 91, 138, 0.12);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    :root[data-theme="light"] .admin-nav__link:hover {
+      background: rgba(255, 255, 255, 0.42);
+      border-color: rgba(255, 91, 138, 0.16);
+      box-shadow: 0 8px 22px rgba(180, 90, 120, 0.08);
+    }
+
+    :root[data-theme="light"] .admin-nav__link:hover .admin-nav__icon {
+      background: rgba(255, 255, 255, 0.58);
+      border-color: rgba(255, 91, 138, 0.2);
+    }
+  }
+
+  :root[data-theme="light"] .admin-nav__link.is-active {
+    background: rgba(255, 255, 255, 0.58);
+    border-color: rgba(255, 91, 138, 0.34);
+    box-shadow:
+      0 10px 26px rgba(180, 90, 120, 0.1),
+      inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  }
+
+  :root[data-theme="light"] .admin-nav__link.is-active .admin-nav__icon {
+    background: rgba(255, 91, 138, 0.16);
+    border-color: rgba(255, 91, 138, 0.42);
+  }
+
+}
+
+/* 后台和登录页默认会用 var(--bg-page) 填满，网格会被遮挡。
+ * 两套主题都让外壳透明，露出 body::before 的底纹；卡片本身仍是实心表面。 */
+:root .admin-shell,
+:root .admin-main,
+:root .admin-login,
+:root .admin-loading-screen {
+  background: transparent;
 }

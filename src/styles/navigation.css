@@ -1,6 +1,6 @@
 /* =========================================================
  * Navigation
- * sticky 顶栏 + Logo + 移动端汉堡
+ * sticky 玻璃顶栏 + Logo 渐变 + 移动端汉堡
  * ========================================================= */
 .top-bar {
   display: none; /* TopBar 当前返回 null */
@@ -13,8 +13,8 @@
   padding-top: env(safe-area-inset-top, 0px);
   background: var(--glass-nav);
   border-bottom: 1px solid var(--border-subtle);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: saturate(160%) blur(16px);
+  -webkit-backdrop-filter: saturate(160%) blur(16px);
 }
 
 .main-nav__inner {
@@ -37,7 +37,7 @@
 }
 
 .main-nav__logo-text {
-  background: var(--accent-strong);
+  background: var(--accent-gradient-strong);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -51,8 +51,8 @@
   }
 
   .main-nav__logo:hover .main-nav__logo-mark {
-    transform: scale(1.02);
-    box-shadow: var(--shadow-sm);
+    transform: rotate(3deg) scale(1.04);
+    box-shadow: 0 6px 20px var(--accent-glow);
   }
 }
 
@@ -75,7 +75,7 @@
 }
 
 .main-nav__logo:active .main-nav__logo-mark {
-  transform: scale(0.98);
+  transform: rotate(3deg) scale(0.96);
 }
 
 .main-nav__logo-img {
@@ -110,12 +110,12 @@
 @media (hover: hover) and (pointer: fine) {
   .main-nav__link:hover {
     color: var(--text-strong);
-    background: var(--bg-hover);
+    background: rgba(255, 255, 255, 0.04);
   }
 }
 
 .main-nav__link.is-active {
-  color: var(--accent);
+  color: var(--text-strong);
   background: var(--accent-soft);
 }
 
@@ -129,7 +129,7 @@
   height: 2px;
   border-radius: 2px;
   background: var(--accent);
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 0 8px var(--accent-glow);
 }
 
 /* ----- 汉堡按钮 ----- */

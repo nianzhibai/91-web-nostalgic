@@ -12,8 +12,8 @@ type ThemeOption = {
 };
 
 const THEME_OPTIONS: ThemeOption[] = [
-  { id: "dark", title: "暗色" },
-  { id: "light", title: "亮色" },
+  { id: "dark", title: "暗黑 + 暖橙" },
+  { id: "light", title: "奶油白 + 樱花粉" },
 ];
 
 type AdminGlobalActionsProps = {

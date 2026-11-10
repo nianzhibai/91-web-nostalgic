@@ -43,7 +43,20 @@
   -webkit-overflow-scrolling: touch;
   color: var(--text-default);
   background-color: var(--bg-page);
+  background-image:
+    linear-gradient(to right, rgba(255, 138, 60, 0.09) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 138, 60, 0.09) 1px, transparent 1px);
+  background-position: 0 0;
+  background-size: 88px 88px;
   isolation: isolate;
+}
+
+:root[data-theme="light"] .video-detail-foreground {
+  background-image:
+    linear-gradient(to right, rgba(255, 91, 138, 0.13) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 91, 138, 0.13) 1px, transparent 1px);
+  background-position: 0 0;
+  background-size: 82px 82px;
 }
 
 .app-shell__nav-stack {
@@ -133,7 +146,7 @@
   bottom: -1px;
   height: 2px;
   border-radius: 2px;
-  background: var(--accent);
+  background: var(--accent-gradient);
 }
 
 .content-tabs__tab:focus-visible {
@@ -185,8 +198,8 @@
   width: 4px;
   height: 22px;
   border-radius: 2px;
-  background: var(--accent);
-  box-shadow: var(--shadow-sm);
+  background: var(--accent-gradient);
+  box-shadow: 0 0 12px var(--accent-glow);
   flex: 0 0 auto;
 }
 
@@ -271,11 +284,11 @@
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--accent-gradient);
   color: var(--text-on-accent);
   display: grid;
   place-items: center;
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 6px 24px var(--accent-glow), var(--shadow-inset);
   opacity: 0;
   pointer-events: none;
   transform: translateY(8px);
@@ -303,11 +316,11 @@
   height: 44px;
   border: 0;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--accent-gradient);
   color: var(--text-on-accent);
   display: grid;
   place-items: center;
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 6px 24px var(--accent-glow), var(--shadow-inset);
   cursor: pointer;
   z-index: var(--z-overlay);
   transition: transform var(--transition-normal), filter var(--transition-normal);
@@ -425,8 +438,8 @@
 
 .upload-mode-switch button.is-active {
   color: var(--text-on-accent);
-  background: var(--accent);
-  box-shadow: none;
+  background: var(--accent-gradient);
+  box-shadow: var(--shadow-inset);
 }
 
 .upload-drop {
@@ -759,7 +772,7 @@
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: var(--accent);
+  background: var(--accent-gradient);
   transition: width var(--transition-normal);
 }
 
