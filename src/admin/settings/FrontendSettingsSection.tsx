@@ -20,6 +20,20 @@ function repositoryKey(repository: string) {
   return repository.replace(/^https:\/\/github\.com\//i, "").replace(/\/$/, "").replace(/\.git$/, "").toLowerCase();
 }
 
+type LocalFrontend = { key: string; name: string; url: string };
+
+// Installed releases, including bundled ones, can be enabled without downloading.
+function localFrontends(status: FrontendStatus | null): LocalFrontend[] {
+  const frontends = new Map<string, LocalFrontend>();
+  for (const release of status?.installed ?? []) {
+    if (!release.repository) continue;
+    const key = repositoryKey(release.repository);
+    const path = release.repository.replace(/^https:\/\/github\.com\//i, "").replace(/\/$/, "").replace(/\.git$/, "");
+    if (!frontends.has(key)) frontends.set(key, { key, name: path.split("/").pop() || path, url: `https://github.com/${path}` });
+  }
+  return [...frontends.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+
 export function FrontendSettingsSection({ repository, configurationSaved, disabled, onRepositoryChange }: Props) {
   const resource = useAdminResource<FrontendStatus | null>(loadStatus, {
     active: useAdminRouteActive(),
@@ -27,7 +41,7 @@ export function FrontendSettingsSection({ repository, configurationSaved, disabl
     initialData: null,
   });
   const status = resource.data;
-  const [pending, setPending] = useState<"check" | "install" | "update" | null>(null);
+  const [pending, setPending] = useState<"check" | "enable" | "install" | "update" | null>(null);
   const [checked, setChecked] = useState<FrontendUpdateCheck | null>(null);
   const [error, setError] = useState("");
   const operationRunning = useRef(false);
@@ -36,6 +50,8 @@ export function FrontendSettingsSection({ repository, configurationSaved, disabl
   const busy = pending !== null;
   const current = status?.current;
   const usingRepository = Boolean(current?.repository && repositoryKey(current.repository) === repositoryKey(repository));
+  const available = localFrontends(status);
+  const installedLocally = available.some(frontend => frontend.key === repositoryKey(repository));
   const contextKey = JSON.stringify([repository, configurationSaved, current?.name, current?.version, current?.repository]);
   const requestGeneration = useRef(0);
   const contextRef = useRef(contextKey);
@@ -51,8 +67,9 @@ export function FrontendSettingsSection({ repository, configurationSaved, disabl
   const buttonText = pending === "check" ? "检查中…"
     : pending === "update" ? "更新并启用中…"
     : pending === "install" ? "安装并启用中…"
+    : pending === "enable" ? "启用中…"
     : !status ? resource.error ? "重新读取" : "加载中…"
-    : !usingRepository ? "安装并启用"
+    : !usingRepository ? installedLocally ? "启用" : "安装并启用"
     : updateAvailable ? "更新并启用" : "检查更新";
 
   useEffect(() => {
@@ -67,7 +84,7 @@ export function FrontendSettingsSection({ repository, configurationSaved, disabl
       return;
     }
     operationRunning.current = true;
-    const operation = usingRepository && !updateAvailable ? "check" : usingRepository ? "update" : "install";
+    const operation = usingRepository && !updateAvailable ? "check" : usingRepository ? "update" : installedLocally ? "enable" : "install";
     const generation = requestGeneration.current;
     const requestContext = contextKey;
     const stillCurrent = () => mounted.current && generation === requestGeneration.current && contextRef.current === requestContext;
@@ -97,7 +114,7 @@ export function FrontendSettingsSection({ repository, configurationSaved, disabl
         if (stillCurrent()) window.location.assign("/");
       }
     } catch (failure) {
-      if (stillCurrent()) setError(failure instanceof Error ? failure.message : operation === "check" ? "检查更新失败，请重试" : "安装失败，请重试");
+      if (stillCurrent()) setError(failure instanceof Error ? failure.message : operation === "check" ? "检查更新失败，请重试" : operation === "enable" ? "启用失败，请重试" : "安装失败，请重试");
     } finally {
       operationRunning.current = false;
       if (mounted.current) setPending(null);
@@ -112,7 +129,7 @@ export function FrontendSettingsSection({ repository, configurationSaved, disabl
       title="前端配置"
       description="自定义配置前端"
     >
-      <SettingsRow label="前端仓库" htmlFor="frontend-repository" description="填写完整的 GitHub 仓库链接">
+      <SettingsRow label="前端仓库" htmlFor="frontend-repository" description="填写完整的 GitHub 仓库链接，或选择本地可用的前端">
         <div className="admin-config-control frontend-settings__repository">
           <input
             id="frontend-repository"
@@ -128,6 +145,26 @@ export function FrontendSettingsSection({ repository, configurationSaved, disabl
             aria-invalid={!valid}
             aria-describedby={!valid ? "frontend-repository-hint" : !configurationSaved ? "frontend-save-hint" : undefined}
           />
+          {available.length > 1 && (
+            <div className="frontend-settings__choices" role="group" aria-label="本地可用的前端">
+              {available.map(frontend => {
+                const selected = frontend.key === repositoryKey(repository);
+                return (
+                  <button
+                    key={frontend.key}
+                    type="button"
+                    className={`frontend-settings__choice${selected ? " is-active" : ""}`}
+                    aria-pressed={selected}
+                    title={frontend.url}
+                    disabled={disabled || busy}
+                    onClick={() => onRepositoryChange(frontend.url)}
+                  >
+                    {frontend.name}
+                  </button>
+                );
+              })}
+            </div>
+          )}
           {!valid && <span id="frontend-repository-hint" className="frontend-settings__message is-error">请输入完整链接，例如 https://github.com/owner/name</span>}
           {valid && !configurationSaved && <span id="frontend-save-hint" className="frontend-settings__message">请先保存配置，再操作前端。</span>}
         </div>

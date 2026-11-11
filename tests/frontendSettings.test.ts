@@ -153,3 +153,36 @@ test("status must be loaded before installation can be offered", async t => {
   await act(async () => { complete(Response.json(currentStatus)); });
   assert.ok(view.getByRole("button", { name: "检查更新" }));
 });
+
+test("installed frontends can be picked and enabled without downloading", async t => {
+  const calls: string[] = [];
+  const bundled = { formatVersion: 1, apiMin: "1.0.0", apiMaxExclusive: "2.0.0", sha256: "a", contentHash: "b", installedAt: "" };
+  t.mock.method(globalThis, "fetch", async (input: string, init?: RequestInit) => {
+    calls.push(`${init?.method || "GET"} ${input}`);
+    if (input.endsWith("/install")) return Response.json({ error: "启用失败" }, { status: 400 });
+    return Response.json({
+      active: "",
+      current: { name: "91-web", version: "1.0.0", repository: "https://github.com/nianzhibai/91-web" },
+      installed: [
+        { ...bundled, name: "91-web", version: "1.0.0", repository: "https://github.com/nianzhibai/91-web" },
+        { ...bundled, name: "91-web-nostalgic", version: "1.0.0", repository: "nianzhibai/91-web-nostalgic" },
+        { ...bundled, name: "custom", version: "0.1.0" },
+      ],
+    });
+  });
+  const changes: string[] = [];
+  const nostalgic = "https://github.com/nianzhibai/91-web-nostalgic";
+  let view!: ReturnType<typeof render>;
+  await act(async () => {
+    view = render(createElement(FrontendSettingsSection, { ...props, repository: "https://github.com/nianzhibai/91-web", onRepositoryChange: (value: string) => changes.push(value) }));
+  });
+  const choices = view.getByRole("group", { name: "本地可用的前端" });
+  assert.deepEqual([...choices.querySelectorAll("button")].map(button => [button.textContent, button.getAttribute("aria-pressed")]),
+    [["91-web", "true"], ["91-web-nostalgic", "false"]]);
+  await act(async () => { fireEvent.click(view.getByRole("button", { name: "91-web-nostalgic" })); });
+  assert.deepEqual(changes, [nostalgic]);
+  view.rerender(createElement(FrontendSettingsSection, { ...props, repository: nostalgic }));
+  await act(async () => { fireEvent.click(view.getByRole("button", { name: "启用" })); });
+  assert.equal(calls.at(-1), "POST /admin/api/frontend/install");
+  assert.match(view.getByRole("alert").textContent || "", /启用失败/);
+});
