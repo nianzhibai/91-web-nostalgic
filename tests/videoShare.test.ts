@@ -181,8 +181,7 @@ test("iOS starts deferred clipboard writing before awaiting share creation", () 
 });
 
 test("share claim token stays out of the request URL and duplicate effects share one promise", () => {
-  assert.match(dataSource, /fetch\("\/api\/share\/consume"/);
-  assert.match(dataSource, /body:\s*JSON\.stringify\(\{ token \}\)/);
+  assert.match(dataSource, /post<VideoShareClaim>\("\/api\/share\/consume", \{ token \}\)/);
   assert.match(dataSource, /const pendingVideoShareClaims = new Map/);
   assert.match(dataSource, /const existing = pendingVideoShareClaims\.get\(token\)/);
   assert.doesNotMatch(dataSource, /api\/share\/\$\{encodeURIComponent\(token\)\}/);

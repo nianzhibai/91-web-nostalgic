@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
-  ADMIN_LOG_REQUEST_TIMEOUT_MS,
   type AdminLogEntry,
   clearLogs,
   downloadLogs,
@@ -494,8 +493,7 @@ test("admin log API client aborts a stalled request with a clear timeout", async
     originalSetTimeout(callback, 0)) as typeof setTimeout;
 
   try {
-    assert.equal(ADMIN_LOG_REQUEST_TIMEOUT_MS, 15000);
-    await assert.rejects(listLogs(), /日志请求超时，请稍后重试/);
+    await assert.rejects(listLogs(), { name: "TimeoutError", message: "请求超时，请稍后重试" });
   } finally {
     globalThis.fetch = originalFetch;
     globalThis.setTimeout = originalSetTimeout;

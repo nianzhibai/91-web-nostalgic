@@ -1,8 +1,10 @@
 import { client } from "../client";
 import type { VideoDetail, VideoItem } from "../types";
-import type { TagItem } from "@91/client/videos";
+import type { TagItem } from "@91/client/types";
 import { filterDeletedVideos, isVideoDeleted, markVideoDeleted, subscribeVideoDeletions } from "../lib/videoDeletions";
 export * from "@91/client/videos";
+export type { TagItem } from "@91/client/types";
+export type { CreateRemoteUploadInput, RemoteUploadJob, RemoteUploadState, UploadVideoInput } from "@91/client/admin";
 
 export const {
   fetchHomeVideos,
@@ -16,18 +18,22 @@ export const {
   consumeVideoShare,
   fetchSharedVideoSubtitles,
   recordSharedVideoView,
-  updateVideoTags,
-  hideVideo,
   recordView,
   setVideoLike,
   setVideoVisitReaction,
-  uploadVideo,
-  createRemoteUpload,
-  fetchRemoteUploads,
-  cancelRemoteUpload,
-  fetchUploadTags,
   fetchShortsNext
 } = client.videos;
+
+// Library management used by the upload, detail and shorts pages.
+export const {
+  updateVideoTags,
+  hideVideo,
+  uploadVideo,
+  createRemoteUpload,
+  cancelRemoteUpload,
+  listRemoteUploads: fetchRemoteUploads,
+  listUploadTags: fetchUploadTags,
+} = client.admin;
 
 export function fetchVideoDetail(id: string): Promise<VideoDetail | null> {
   if (isVideoDeleted(id)) return Promise.resolve(null);
@@ -39,7 +45,7 @@ export async function fetchVideoRecommendations(id: string, options: { signal?: 
 }
 
 export async function deleteVideo(id: string, options: { deleteSource?: boolean } = {}) {
-  const result = await client.videos.deleteVideo(id, options);
+  const result = await client.admin.deleteVideo(id, options);
   markVideoDeleted(id);
   return result;
 }

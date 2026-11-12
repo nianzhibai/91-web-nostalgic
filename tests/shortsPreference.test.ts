@@ -63,7 +63,7 @@ test("shorts does not keep recommendation preference from likes or watch time", 
   assert.doesNotMatch(match[0], /preferred/i);
   assert.doesNotMatch(videosDataSource, /JSON\.stringify\(\{ seenIds, count \}\)/);
   assert.match(videosDataSource, /const params = new URLSearchParams\(\{\s*cursor: String\(cursor\),\s*count: String\(count\),/);
-  assert.match(videosDataSource, /apiGet<ShortsNextResponse>/);
+  assert.match(videosDataSource, /get<ShortsNextResponse>\(\s*`\/api\/shorts\/next\?/);
 });
 
 test("shorts progress dragging uses immediate pointer state", () => {

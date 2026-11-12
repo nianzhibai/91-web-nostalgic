@@ -308,7 +308,7 @@ test("upload tag choices always read the managed upload catalog", async (t) => {
   let calls = 0;
   globalThis.fetch = (async (input) => {
     calls += 1;
-    assert.equal(String(input), "/api/upload/tags");
+    assert.equal(String(input), "/admin/api/upload/tags");
     return new Response(
       JSON.stringify([{ id: `tag-${calls}`, label: `可选标签${calls}`, count: 0 }]),
       {
