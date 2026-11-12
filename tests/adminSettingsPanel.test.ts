@@ -42,7 +42,9 @@ const diffModalSource = readFileSync(
   new URL("../src/admin/settings/ConfigDiffModal.tsx", import.meta.url),
   "utf8"
 );
-const apiSource = readFileSync(new URL("../node_modules/@91/client/src/admin.ts", import.meta.url), "utf8");
+// Wire shapes live in the generated contract; the admin module aliases them.
+const apiSource = readFileSync(new URL("../node_modules/@91/client/src/admin.ts", import.meta.url), "utf8") +
+  readFileSync(new URL("../node_modules/@91/client/src/contract.ts", import.meta.url), "utf8");
 const adminCss = readFileSync(
   new URL("../src/styles/admin.css", import.meta.url),
   "utf8"
@@ -170,7 +172,8 @@ test("nightly schedule enable switch inverts the disabled flag in the shared YAM
   assert.match(configYamlSource, /nightlyDisabled: boolean/);
   assert.match(configYamlSource, /\["nightly", "disabled"\]/);
   assert.match(configYamlSource, /nightlyDisabledEdits/);
-  assert.match(apiSource, /settings:\s*\{[\s\S]*?nightlyDisabled: boolean/);
+  assert.match(apiSource, /settings: Schemas\["configLiveSettings"\]/);
+  assert.match(apiSource, /configLiveSettings: \{[^}]*nightlyDisabled: boolean/);
 });
 
 test("nightly time and timezone share a responsive two-column row", () => {

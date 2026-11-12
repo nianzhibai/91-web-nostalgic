@@ -14,6 +14,10 @@ const videosDataSource = readFileSync(
   new URL("../node_modules/@91/client/src/videos.ts", import.meta.url),
   "utf8"
 );
+const shortsItemSource = /  ShortsItemDTO: \{[^}]*\}/.exec(readFileSync(
+  new URL("../node_modules/@91/client/src/contract.ts", import.meta.url),
+  "utf8"
+))![0];
 const shareClipboardSource = readFileSync(
   new URL("../src/lib/videoShareClipboard.ts", import.meta.url),
   "utf8"
@@ -63,7 +67,7 @@ test("shorts does not keep recommendation preference from likes or watch time", 
   assert.doesNotMatch(match[0], /preferred/i);
   assert.doesNotMatch(videosDataSource, /JSON\.stringify\(\{ seenIds, count \}\)/);
   assert.match(videosDataSource, /const params = new URLSearchParams\(\{\s*cursor: String\(cursor\),\s*count: String\(count\),/);
-  assert.match(videosDataSource, /get<ShortsNextResponse>\(\s*`\/api\/shorts\/next\?/);
+  assert.match(videosDataSource, /read<ShortsNextResponse>\(\s*`\/api\/shorts\/next\?/);
 });
 
 test("shorts progress dragging uses immediate pointer state", () => {
@@ -1173,7 +1177,7 @@ test("the active slide never puts a CSS filter on the playing video", () => {
 });
 
 test("shorts uses a server-preblurred texture instead of a viewport blur layer", () => {
-  assert.match(videosDataSource, /backgroundPoster\?: string;/);
+  assert.match(shortsItemSource, /backgroundPoster\?: string;/);
   assert.match(
     shortsPageSource,
     /backgroundImage: `url\(\$\{item\.backgroundPoster \|\| item\.poster\}\)`/
@@ -1317,7 +1321,8 @@ test("shorts sizes the preload gate by bitrate, not by a fixed second count", ()
 
 
 
-  assert.match(videosDataSource, /sizeBytes\?: number;\s*durationSeconds\?: number;/);
+  assert.match(shortsItemSource, /sizeBytes\?: number;/);
+  assert.match(shortsItemSource, /durationSeconds\?: number;/);
 
   // ?debug=1 面板要能看到实际生效的门槛，否则真机上无法确认
   assert.match(shortsHudSource, /gate=\$\{preloadBufferSeconds\.toFixed\(1\)\}s rate=/);

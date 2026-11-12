@@ -8,7 +8,9 @@ const globalActionsSource = readFileSync(
   "utf8"
 );
 const appSource = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
-const apiSource = readFileSync(new URL("../node_modules/@91/client/src/admin.ts", import.meta.url), "utf8");
+// Wire shapes live in the generated contract; the admin module aliases them.
+const apiSource = readFileSync(new URL("../node_modules/@91/client/src/admin.ts", import.meta.url), "utf8") +
+  readFileSync(new URL("../node_modules/@91/client/src/contract.ts", import.meta.url), "utf8");
 const adminCss = readFileSync(new URL("../src/styles/admin.css", import.meta.url), "utf8");
 
 test("home, theme, update, and logout are layout-level global actions", () => {
