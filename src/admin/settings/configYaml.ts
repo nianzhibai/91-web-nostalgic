@@ -15,7 +15,6 @@ import {
 } from "yaml";
 
 export type SettingsDraft = TelegramDraft & {
-  frontendRepository: string;
   useGPU: boolean;
   previewEnabled: boolean;
   nightlyDisabled: boolean;
@@ -30,7 +29,6 @@ export type VisualField = keyof SettingsDraft;
 
 export const DEFAULT_DRAFT: SettingsDraft = {
   ...TELEGRAM_DEFAULTS,
-  frontendRepository: "https://github.com/nianzhibai/91-web",
   useGPU: false,
   previewEnabled: true,
   nightlyDisabled: false,
@@ -56,10 +54,6 @@ type SourceEdit = {
 type RangedNode = {
   range?: Range | null;
 };
-
-export function isValidFrontendRepository(value: string) {
-  return /^https:\/\/github\.com\/[A-Za-z0-9][A-Za-z0-9_.-]*\/[A-Za-z0-9][A-Za-z0-9_.-]*\/?$/.test(value);
-}
 
 export function isValidStartTime(value: string) {
   if (!/^\d{2}:\d{2}$/.test(value)) return false;
@@ -93,14 +87,6 @@ export function configDocument(source: string) {
 }
 
 function draftFromDocument(document: ReturnType<typeof configDocument>): SettingsDraft {
-  const frontendNode = document.get("frontend", true);
-  if (frontendNode != null && !isMap(frontendNode) && !(isScalar(frontendNode) && frontendNode.value === null)) {
-    throw new Error("frontend 必须是映射对象");
-  }
-  const frontendRepository = document.getIn(["frontend", "repository"]) ?? DEFAULT_DRAFT.frontendRepository;
-  if (typeof frontendRepository !== "string" || !isValidFrontendRepository(frontendRepository)) {
-    throw new Error("frontend.repository 必须是完整的 GitHub 仓库链接，例如 https://github.com/owner/name");
-  }
   const nightlyNode = document.get("nightly", true);
   if (
     nightlyNode !== undefined &&
@@ -198,7 +184,6 @@ function draftFromDocument(document: ReturnType<typeof configDocument>): Setting
 
   return {
     ...telegramDraftFromDocument(document),
-    frontendRepository,
     useGPU,
     previewEnabled,
     nightlyDisabled,
@@ -935,11 +920,6 @@ export function applyVisualFields(
       );
     }
   }
-  if (fields.has("frontendRepository")) {
-    updated = applySourceEdits(updated, sectionSettingEdits(
-      updated, configDocument(updated), "frontend", "repository", draft.frontendRepository
-    ));
-  }
   for (const field of TELEGRAM_FIELDS) {
     if (!fields.has(field)) continue;
     updated = applySourceEdits(updated, sectionSettingEdits(
@@ -955,7 +935,6 @@ export function applyVisualFields(
 
 export function changedVisualFields(saved: SettingsDraft, draft: SettingsDraft) {
   const fields = new Set<VisualField>();
-  if (saved.frontendRepository !== draft.frontendRepository) fields.add("frontendRepository");
   if (saved.useGPU !== draft.useGPU) {
     fields.add("useGPU");
   }

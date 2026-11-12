@@ -410,21 +410,3 @@ test("removed per-drive and combined settings do not control the independent bud
   assert.equal(parseConfig(updated).draft.previewConcurrency, 3);
   assert.match(updated, /preview_concurrency: 3/);
 });
-
-test("frontend repository round-trips through visual and source editing without changing unrelated YAML", () => {
-  const source = '# keep\nfrontend:\n  repository: "https://github.com/owner/web" # source\nnightly: {start_time: "03:00"}\n';
-  const draft = parseConfig(source).draft;
-  assert.equal(draft.frontendRepository, "https://github.com/owner/web");
-  const updatedDraft = { ...draft, frontendRepository: "https://github.com/community/web.git" };
-  assert.deepEqual([...changedVisualFields(draft, updatedDraft)], ["frontendRepository"]);
-  const updated = applyVisualFields(source, updatedDraft, new Set(["frontendRepository"]));
-  assert.equal(updated, source.replace("https://github.com/owner/web", updatedDraft.frontendRepository));
-  assert.equal(parseConfig(updated).draft.frontendRepository, updatedDraft.frontendRepository);
-  for (const original of ["{}\n", "frontend:\n", "frontend: null\n", "frontend: {}\n", "# empty\n"]) {
-    const result = applyVisualFields(original, updatedDraft, new Set(["frontendRepository"]));
-    assert.equal(parseConfig(result).draft.frontendRepository, updatedDraft.frontendRepository);
-  }
-  for (const value of ["owner/web", "http://github.com/owner/web", "https://example.com/owner/web", "https://github.com/owner/web/tree/main", "https://github.com/owner/web?tab=readme"]) {
-    assert.throws(() => parseConfig(`frontend: { repository: ${JSON.stringify(value)} }`), /frontend.repository/);
-  }
-});

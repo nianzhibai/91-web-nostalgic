@@ -25,55 +25,34 @@ async function openSettings(path: string) {
   return view;
 }
 
-test("frontend repository uses the shared YAML save flow and source editor", async t => {
-  let content = 'frontend:\n  repository: "https://github.com/owner/web"\n';
+test("frontend switching is independent of unsaved configuration changes", async t => {
   const writes: { path: string; body: unknown }[] = [];
   t.mock.method(globalThis, "fetch", async (input: string, init?: RequestInit) => {
-    if (init?.method === "PUT") {
-      writes.push({ path: input, body: init.body });
-      content = String(init.body);
-      return Response.json({ version: "v2", restartRequired: false, settings: { previewEnabled: true, telegramEnabled: false } });
-    }
-    if (input.endsWith("config.yaml")) return new Response(content, { headers: { ETag: '"v1"' } });
-    return Response.json({ active: "", installed: [] });
+    if (input.endsWith("config.yaml")) return new Response('nightly:\n  start_time: "01:00"\n', { headers: { ETag: '"v1"' } });
+    if (init?.method === "POST") writes.push({ path: input, body: init.body });
+    if (input.endsWith("/updates")) return Response.json({ updates: [] });
+    return Response.json({ frontends: [
+      { id: "", name: "web", version: "1.0.0", builtin: true, active: true },
+      { id: "other@1.0.0", name: "other", version: "1.0.0", builtin: true, active: false },
+    ] });
   });
-  const view = await openSettings("/admin/settings?section=frontend");
+  const view = await openSettings("/admin/settings");
+  fireEvent.change(view.getByLabelText("启动时间"), { target: { value: "02:30" } });
+  await act(async () => { fireEvent.click(view.getByRole("tab", { name: "前端配置" })); });
   assert.ok(view.getByRole("tab", { name: "前端配置", selected: true }));
-  assert.ok(view.getByRole("button", { name: "源码编辑" }));
-  assert.equal((view.getByLabelText("前端仓库") as HTMLInputElement).value, "https://github.com/owner/web");
-  fireEvent.change(view.getByLabelText("前端仓库"), { target: { value: "https://github.com/community/web" } });
-  assert.equal(view.getByRole("button", { name: "安装并启用" }).hasAttribute("disabled"), true);
-  await act(async () => { fireEvent.click(view.getByRole("button", { name: "源码编辑" })); });
-  assert.ok(view.container.querySelector("#config-source-form"));
-  await act(async () => { fireEvent.click(view.getByRole("button", { name: "可视化编辑" })); });
-  assert.equal((view.getByLabelText("前端仓库") as HTMLInputElement).value, "https://github.com/community/web");
-  await act(async () => { fireEvent.click(view.getByRole("button", { name: "预览并保存配置" })); });
-  const dialog = view.getByRole("dialog");
-  assert.match(dialog.textContent || "", /https:\/\/github.com\/community\/web/);
-  await act(async () => { fireEvent.click(within(dialog).getByRole("button", { name: "确认保存" })); });
-  assert.deepEqual(writes, [{ path: "/admin/api/config.yaml", body: 'frontend:\n  repository: "https://github.com/community/web"\n' }]);
-  assert.equal(view.getByRole("button", { name: "安装并启用" }).hasAttribute("disabled"), false, view.container.textContent || "");
+  await act(async () => { fireEvent.click(view.getByRole("button", { name: "使用 other" })); });
+  assert.deepEqual(writes, [{ path: "/admin/api/frontend/activate", body: '{"id":"other@1.0.0"}' }]);
   assert.equal(view.container.querySelector("form form"), null);
-});
-
-test("invalid frontend repository cannot be saved or installed", async t => {
-  t.mock.method(globalThis, "fetch", async (input: string) => input.endsWith("config.yaml")
-    ? new Response('{}\n', { headers: { ETag: '"v1"' } })
-    : Response.json({ active: "", installed: [] }));
-  const view = await openSettings("/admin/settings?section=frontend");
-  fireEvent.change(view.getByLabelText("前端仓库"), { target: { value: "owner/web" } });
-  assert.equal(view.getByRole("button", { name: "预览并保存配置" }).hasAttribute("disabled"), true);
-  assert.equal(view.getByRole("button", { name: "安装并启用" }).hasAttribute("disabled"), true);
 });
 
 test("visiting frontend configuration preserves other unsaved YAML fields", async t => {
   t.mock.method(globalThis, "fetch", async (input: string) => input.endsWith("config.yaml")
     ? new Response('nightly:\n  start_time: "01:00"\n', { headers: { ETag: '"v1"' } })
-    : Response.json({ active: "", installed: [] }));
+    : Response.json(input.endsWith("/updates") ? { updates: [] } : { frontends: [] }));
   const view = await openSettings("/admin/settings");
   fireEvent.change(view.getByLabelText("启动时间"), { target: { value: "02:30" } });
   await act(async () => { fireEvent.click(view.getByRole("tab", { name: "前端配置" })); });
-  assert.ok(view.getByLabelText("前端仓库"));
+  assert.ok(view.getByLabelText("添加前端"));
   await act(async () => { fireEvent.click(view.getByRole("tab", { name: "定时任务" })); });
   assert.equal((view.getByLabelText("启动时间") as HTMLInputElement).value, "02:30");
   assert.equal(view.getByRole("button", { name: "预览并保存配置" }).hasAttribute("disabled"), false);

@@ -39,7 +39,6 @@ import {
   applyVisualFields,
   changedVisualFields,
   isValidStartTime,
-  isValidFrontendRepository,
   isValidTimezone,
   parseConfig,
   type SettingsDraft,
@@ -247,7 +246,6 @@ export function SettingsPage() {
     (sourceTouched ? workingYAML !== loaded.content : visualDirtyFields.size > 0);
   const dirtyRef = useRef(dirty);
   dirtyRef.current = dirty;
-  const frontendRepositoryValid = isValidFrontendRepository(draft.frontendRepository);
   const timeValid = isValidStartTime(draft.nightlyStartTime);
   const timezoneValid = isValidTimezone(draft.nightlyTimezone);
   const generationConcurrencyValid = GENERATION_FIELDS.every(
@@ -263,7 +261,6 @@ export function SettingsPage() {
   const scheduleControlsDisabled = controlsDisabled || draft.nightlyDisabled;
   const hasConfigError =
     Boolean(sourceError) ||
-    !frontendRepositoryValid ||
     !timeValid ||
     !timezoneValid ||
     !generationConcurrencyValid;
@@ -371,7 +368,6 @@ export function SettingsPage() {
     if (
       !loaded ||
       !dirty ||
-      !frontendRepositoryValid ||
       !timeValid ||
       !timezoneValid ||
       !generationConcurrencyValid ||
@@ -782,12 +778,7 @@ export function SettingsPage() {
                 </SettingsSection>
               )}
               {activeSection === "config-frontend" && (
-                <FrontendSettingsSection
-                  repository={draft.frontendRepository}
-                  configurationSaved={!dirty}
-                  disabled={controlsDisabled}
-                  onRepositoryChange={(value) => updateVisualField("frontendRepository", value)}
-                />
+                <FrontendSettingsSection />
               )}
               <TelegramSettingsSection active={telegramSelected} disabled={controlsDisabled} draft={draft} onChange={updateVisualField} />
             </form>
@@ -827,7 +818,6 @@ export function SettingsPage() {
             disabled={
               controlsDisabled ||
               !dirty ||
-              !frontendRepositoryValid ||
               !timeValid ||
               !timezoneValid ||
               !generationConcurrencyValid ||
