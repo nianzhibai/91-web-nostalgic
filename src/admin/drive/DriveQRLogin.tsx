@@ -85,10 +85,19 @@ export function DriveQRLogin({
     const controller = new AbortController();
     let interval = active.intervalMs;
     let timer: number | undefined;
-    let finished = false;
+    let released = false;
+
+    // The server keeps a final result briefly so a lost response can be
+    // polled again; once this component has it, drop the login and its
+    // credentials right away.
+    function release() {
+      if (released) return;
+      released = true;
+      void api.cancelDriveLogin(active.id).catch(() => {});
+    }
 
     function finish(next: Progress) {
-      finished = true;
+      release();
       controller.abort();
       window.clearTimeout(timer);
       window.clearTimeout(expiryTimer);
@@ -122,7 +131,7 @@ export function DriveQRLogin({
         setPollingError("");
       } catch (error) {
         if (controller.signal.aborted) return;
-        // The server forgets a login after it ends, expires or restarts.
+        // The server forgets a login after its retention, a restart or cancellation.
         if (error instanceof api.APIResponseError && error.status === 404) {
           finish({ state: "expired" });
           return;
@@ -137,7 +146,7 @@ export function DriveQRLogin({
       controller.abort();
       window.clearTimeout(timer);
       window.clearTimeout(expiryTimer);
-      if (!finished) void api.cancelDriveLogin(active.id).catch(() => {});
+      release();
     };
   }, [session]);
 

@@ -64,7 +64,7 @@ function harness(t: TestContext) {
 
 const success = (credentials: Record<string, string>) => Response.json({ state: "success", credentials, intervalMs: 2000 });
 
-test("QR login keeps one poll in flight across rerenders and gives credentials to the latest callback", async (t) => {
+test("QR login keeps one poll in flight across rerenders, gives credentials to the latest callback and releases the login", async (t) => {
   const env = harness(t);
   const received: Record<string, string>[] = [];
   await env.render(() => assert.fail("A stale callback received credentials"));
@@ -79,7 +79,7 @@ test("QR login keeps one poll in flight across rerenders and gives credentials t
   assert.deepEqual(received, [{ cookie: "new-cookie" }]);
   await env.tick(300_000);
   assert.equal(env.polls.length, 1);
-  assert.deepEqual(env.cancels, []);
+  assert.deepEqual(env.cancels, ["login-1"]);
   assert.match(env.text, /登录成功/);
   assert.doesNotMatch(env.text, /已过期/);
 });
@@ -101,7 +101,7 @@ test("QR polling waits for each response, follows the server interval and stops 
   await env.tick(300_000);
   assert.equal(env.polls.length, 2);
   assert.match(env.text, /已被拒绝或取消/);
-  assert.deepEqual(env.cancels, []);
+  assert.deepEqual(env.cancels, ["login-1"]);
 });
 
 test("regenerating a QR code cancels the old login and ignores its late success", async (t) => {
