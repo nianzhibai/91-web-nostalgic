@@ -94,26 +94,11 @@ const credentialsSource = readFileSync(
   new URL("../src/admin/drive/credentials.ts", import.meta.url),
   "utf8"
 );
-const p123QRCodeLoginSource = readFileSync(
-  new URL("../src/admin/drive/P123QRCodeLogin.tsx", import.meta.url),
+const driveQRLoginSource = readFileSync(
+  new URL("../src/admin/drive/DriveQRLogin.tsx", import.meta.url),
   "utf8"
 );
-const p115QRCodeLoginSource = readFileSync(
-  new URL("../src/admin/drive/P115QRCodeLogin.tsx", import.meta.url),
-  "utf8"
-);
-const quarkQRCodeLoginSource = readFileSync(
-  new URL("../src/admin/drive/QuarkQRCodeLogin.tsx", import.meta.url),
-  "utf8"
-);
-const qrLoginSources = [
-  quarkQRCodeLoginSource,
-  p115QRCodeLoginSource,
-  p123QRCodeLoginSource,
-  readFileSync(new URL("../src/admin/drive/WopanQRCodeLogin.tsx", import.meta.url), "utf8"),
-  readFileSync(new URL("../src/admin/drive/GuangYaPanQRCodeLogin.tsx", import.meta.url), "utf8"),
-]
-  .join("\n");
+const qrLoginSources = driveQRLoginSource;
 
 const combinedSource = drivesPageSource + "\n" + driveFormSource + "\n" + constantsSource + "\n" + credentialsSource + "\n" + crawlerUploadTargetSource;
 const driveIconKinds = [
@@ -346,15 +331,10 @@ test("wopan drive form omits the optional family space field", () => {
 
 test("p115 drive form supports qr login and manual cookie fallback", () => {
   assertDriveTypeOption("p115", "115 网盘");
-  assert.match(driveFormSource, /P115QRCodeLogin/);
-  assert.match(driveFormSource, /form\.kind === "p115"/);
-  assert.match(p115QRCodeLoginSource, /<span className="admin-form__label">扫码登录<\/span>/);
-  assert.match(p115QRCodeLoginSource, /status\?\.state === "scanned"/);
-  assert.match(p115QRCodeLoginSource, /onCookie\(next\.cookie\)/);
-  assert.match(apiSource, /startP115QRLogin/);
-  assert.match(apiSource, /getP115QRStatus/);
-  assert.match(apiSource, /request<P115QRStatus>\("\/drives\/p115\/qr\/status", \{/);
-  assert.match(apiSource, /body: JSON\.stringify\(\{/);
+  assert.match(driveFormSource, /<DriveQRLogin/);
+  assert.match(driveQRLoginSource, /"p115"/);
+  assert.match(driveQRLoginSource, /<span className="admin-form__label">扫码登录<\/span>/);
+  assert.match(apiSource, /request<DriveLoginSession>\("\/drive-logins", \{ method: "POST", body: JSON\.stringify\(\{ kind \}\)/);
 
   const match =
     /case "p115":\s*return \[([\s\S]*?)\];\s*case "p123":/.exec(
@@ -367,15 +347,10 @@ test("p115 drive form supports qr login and manual cookie fallback", () => {
 
 test("quark drive form supports qr login and manual cookie fallback", () => {
   assertDriveTypeOption("quark", "夸克网盘");
-  assert.match(driveFormSource, /QuarkQRCodeLogin/);
-  assert.match(driveFormSource, /form\.kind === "quark"/);
-  assert.match(quarkQRCodeLoginSource, /<span className="admin-form__label">扫码登录<\/span>/);
-  assert.match(quarkQRCodeLoginSource, /onCookie\(next\.cookie\)/);
-  assert.match(quarkQRCodeLoginSource, /getQuarkQRStatus\(activeSession\.token\)/);
-  assert.match(apiSource, /startQuarkQRLogin/);
-  assert.match(apiSource, /getQuarkQRStatus/);
-  assert.match(apiSource, /request<QuarkQRStatus>\("\/drives\/quark\/qr\/status", \{/);
-  assert.match(apiSource, /body: JSON\.stringify\(\{ token \}\)/);
+  assert.match(driveFormSource, /<DriveQRLogin/);
+  assert.match(driveQRLoginSource, /"quark"/);
+  assert.match(driveQRLoginSource, /<span className="admin-form__label">扫码登录<\/span>/);
+  assert.match(apiSource, /request<DriveLoginSession>\("\/drive-logins", \{ method: "POST", body: JSON\.stringify\(\{ kind \}\)/);
 
   const match =
     /case "quark":\s*return \[([\s\S]*?)\];\s*case "p115":/.exec(
@@ -389,10 +364,10 @@ test("quark drive form supports qr login and manual cookie fallback", () => {
 
 test("p123 drive form exposes qr login and phone or email password login", () => {
   assertDriveTypeOption("p123", "123网盘");
-  assert.match(driveFormSource, /P123QRCodeLogin/);
-  assert.match(p123QRCodeLoginSource, /<span className="admin-form__label">扫码登录<\/span>/);
+  assert.match(driveFormSource, /<DriveQRLogin/);
+  assert.match(driveQRLoginSource, /<span className="admin-form__label">扫码登录<\/span>/);
   assert.match(driveFormSource, /className="admin-form__method-label">\{f\.methodLabel\}<\/div>/);
-  assert.doesNotMatch(p123QRCodeLoginSource, /方式一：扫码登录/);
+  assert.doesNotMatch(driveQRLoginSource, /方式一：扫码登录/);
   assert.doesNotMatch(driveFormSource, /方式二：手机号密码登录/);
   assert.match(credentialsSource, /hasScannedToken/);
   assert.match(credentialsSource, /请扫码登录，或填写手机号\/邮箱和密码/);
@@ -411,15 +386,14 @@ test("p123 drive form exposes qr login and phone or email password login", () =>
   assert.match(fields, /label: "密码"/);
   assert.doesNotMatch(fields, /key: "access_token"/);
   assert.doesNotMatch(fields, /access_token（推荐用于风控场景）|可选/);
-  assert.doesNotMatch(p123QRCodeLoginSource, /已填入 access_token/);
+  assert.doesNotMatch(driveQRLoginSource, /已填入 access_token/);
 });
 
 test("guangyapan drive form exposes qr login and token fields", () => {
   assertDriveTypeOption("guangyapan", "光鸭网盘");
-  assert.match(driveFormSource, /GuangYaPanQRCodeLogin/);
-  assert.match(driveFormSource, /form\.kind === "guangyapan"/);
-  assert.match(apiSource, /startGuangYaPanQRLogin/);
-  assert.match(apiSource, /getGuangYaPanQRStatus/);
+  assert.match(driveFormSource, /<DriveQRLogin/);
+  assert.match(driveQRLoginSource, /"guangyapan"/);
+  assert.match(apiSource, /request<DriveLoginSession>\("\/drive-logins", \{ method: "POST", body: JSON\.stringify\(\{ kind \}\)/);
 
   const match =
     /case "guangyapan":\s*return \[([\s\S]*?)\];\s*case "onedrive":/.exec(

@@ -1,16 +1,12 @@
 import { Fragment, useEffect, useId, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
-import { QuarkQRCodeLogin } from "./QuarkQRCodeLogin";
-import { P115QRCodeLogin } from "./P115QRCodeLogin";
-import { P123QRCodeLogin } from "./P123QRCodeLogin";
-import { WopanQRCodeLogin } from "./WopanQRCodeLogin";
-import { Yun139QRCodeLogin } from "./Yun139QRCodeLogin";
-import { GuangYaPanQRCodeLogin } from "./GuangYaPanQRCodeLogin";
+import { DriveQRLogin, supportsDriveQRLogin } from "./DriveQRLogin";
 import {
   FormState,
   Kind,
   credentialFields,
   driveKindIconPath,
+  kindLabel,
   rootDirectoryLabel,
   rootIdPlaceholder,
   usesRootDirectoryID,
@@ -207,52 +203,12 @@ export function DriveForm({
 
       {fields.length > 0 && (
         <div className="admin-form__section">
-          {form.kind === "quark" && (
-            <QuarkQRCodeLogin onCookie={(cookie) => setCred("cookie", cookie)} />
-          )}
-
-          {form.kind === "p115" && (
-            <P115QRCodeLogin onCookie={(cookie) => setCred("cookie", cookie)} />
-          )}
-
-          {form.kind === "p123" && (
-            <P123QRCodeLogin
-              onToken={(token) => setCred("access_token", token)}
-            />
-          )}
-
-          {form.kind === "wopan" && (
-            <WopanQRCodeLogin
-              onCredentials={(credentials) =>
-                onChange({
-                  ...form,
-                  creds: {
-                    ...form.creds,
-                    access_token: credentials.accessToken,
-                    refresh_token: credentials.refreshToken,
-                    ...(credentials.familyID ? { family_id: credentials.familyID } : {}),
-                  },
-                })
-              }
-            />
-          )}
-
-          {form.kind === "yun139" && (
-            <Yun139QRCodeLogin onAuthorization={(authorization) => setCred("authorization", authorization)} />
-          )}
-
-          {form.kind === "guangyapan" && (
-            <GuangYaPanQRCodeLogin
-              onCredentials={(credentials) =>
-                onChange({
-                  ...form,
-                  creds: {
-                    ...form.creds,
-                    access_token: credentials.accessToken,
-                    refresh_token: credentials.refreshToken,
-                  },
-                })
-              }
+          {supportsDriveQRLogin(form.kind) && (
+            <DriveQRLogin
+              key={form.kind}
+              kind={form.kind}
+              label={kindLabel[form.kind]}
+              onCredentials={(credentials) => onChange({ ...form, creds: { ...form.creds, ...credentials } })}
             />
           )}
 
