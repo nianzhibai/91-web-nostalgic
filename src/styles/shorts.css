@@ -131,6 +131,7 @@ body.shorts-document-scroll::before {
   color: #fff;
   cursor: pointer;
   transition: opacity 0.18s ease, transform 0.18s ease;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .shorts-header__back svg,

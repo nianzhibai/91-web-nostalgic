@@ -255,6 +255,7 @@ body.admin-mobile-nav-open {
     background var(--transition-fast),
     border-color var(--transition-fast),
     transform var(--transition-fast);
+    -webkit-tap-highlight-color: transparent;
 }
 
 .admin-global-action.is-active {
@@ -2549,6 +2550,7 @@ body.admin-mobile-nav-open {
   text-align: left;
   cursor: pointer;
   transition: background var(--transition-fast), border-color var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
 }
 
 .admin-modal--drive-form .admin-drive-type-card__icon {
@@ -2990,6 +2992,7 @@ body.admin-mobile-nav-open {
 
   .admin-mobile-nav-toggle {
     appearance: none;
+    -webkit-tap-highlight-color: transparent;
     position: fixed;
     top: calc(6px + env(safe-area-inset-top, 0px));
     left: var(--space-2);
@@ -3036,6 +3039,7 @@ body.admin-mobile-nav-open {
    * and floating actions (nav layer) while staying below dialogs. */
   .admin-mobile-nav-backdrop {
     appearance: none;
+    -webkit-tap-highlight-color: transparent;
     position: fixed;
     inset: 0;
     z-index: var(--z-overlay);
@@ -6657,6 +6661,11 @@ body.admin-mobile-nav-open {
     box-shadow: var(--shadow-md);
     outline: none;
   }
+}
+
+/* Touch has no hover: show the press on the card itself. */
+.admin-drive-card:active {
+  border-color: var(--border-accent);
 }
 
 .admin-drives-page .admin-status {

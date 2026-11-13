@@ -38,6 +38,7 @@
     color: var(--text-default);
     text-align: left;
     box-shadow: var(--shadow-sm);
+    -webkit-tap-highlight-color: transparent;
   }
 
   .vd-collection-entry:active {
@@ -101,6 +102,7 @@
     background: rgba(3, 5, 10, 0.62);
     animation: vd-collection-backdrop-in var(--duration-fast) var(--ease-out);
     overscroll-behavior: contain;
+    -webkit-tap-highlight-color: transparent;
   }
 
   .vd-collection-sheet {
@@ -191,6 +193,7 @@
     place-items: center;
     background: transparent;
     color: var(--text-muted);
+    -webkit-tap-highlight-color: transparent;
   }
 
   .vd-collection-sheet__close::before {
@@ -251,6 +254,7 @@
     color: var(--text-muted);
     font-size: var(--font-md);
     font-weight: var(--weight-medium);
+    -webkit-tap-highlight-color: transparent;
   }
 
   .vd-collection-sheet__sort:active {
