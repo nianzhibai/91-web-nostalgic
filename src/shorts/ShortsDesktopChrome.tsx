@@ -7,6 +7,7 @@ import {
   Settings,
   ThumbsUp,
 } from "lucide-react";
+import brandIconUrl from "@/assets/brand-icon.png";
 import { SHORTS_FEED_TABS, type ShortsFeedMode } from "./shortsFeed";
 
 const DESKTOP_FEED_TABS = [
@@ -34,7 +35,7 @@ export function ShortsDesktopSidebar({
   return (
     <aside className="shorts-desktop-sidebar" aria-label="网站导航">
       <div className="shorts-desktop-brand">
-        <img src="/icon.png" alt="91" />
+        <img src={brandIconUrl} alt="91" />
         <span className="shorts-desktop-brand__name">nine one</span>
       </div>
       <nav className="shorts-desktop-nav" aria-label="浏览视频">

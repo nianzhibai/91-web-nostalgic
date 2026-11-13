@@ -78,7 +78,7 @@ export function setVideoSourceActive(video: HTMLVideoElement, active: boolean) {
 export function playbackSourceURL(video: HTMLVideoElement) {
   return controllers.get(video)?.url ?? video.currentSrc;
 }
-export function playbackModeLabel(mode: PlaybackMode) {
+function playbackModeLabel(mode: PlaybackMode) {
   return PLAYBACK_MODES.find((option) => option.value === mode)?.label ?? "正在选择";
 }
 export function originalPlaybackLabel(urlSource?: string, compact = false) {
@@ -187,6 +187,8 @@ export function attachVideoSource(
   let startupTimer: ReturnType<typeof setTimeout> | null = null;
   let startupComplete = false;
   let sourceInfoSequence = 0;
+  let sourceInfoInFlight = false;
+  let sourceInfoQueued = false;
   const failed = new Set<string>();
   const refreshed = new Set<string>();
   const prepared = new Set<string>();
@@ -298,15 +300,25 @@ export function attachVideoSource(
     watchStartup();
     refreshOriginalSourceInfo();
   }
+  /**
+   * The backend may switch resolvers between range requests, so the label is
+   * re-read after playback starts and after seeks. Scrubbing fires these events
+   * in bursts; keep one request in flight and fold the burst into one follow-up.
+   */
   function refreshOriginalSourceInfo() {
     const source = controller.state.activeSource;
     if (disposed || controller.state.loading || source?.kind !== "original" || !source.sourceInfoUrl) return;
+    if (sourceInfoInFlight) {
+      sourceInfoQueued = true;
+      return;
+    }
     const epoch = generation;
     const sequence = ++sourceInfoSequence;
     let infoURL: URL;
     try { infoURL = new URL(source.sourceInfoUrl, window.location.href); }
     catch { return; }
     if (infoURL.origin !== window.location.origin) return;
+    sourceInfoInFlight = true;
     void (async () => {
       const response = await (options.fetch ?? window.fetch.bind(window))(infoURL.href, {
         credentials: "same-origin", cache: "no-store", signal: abort?.signal,
@@ -322,7 +334,12 @@ export function attachVideoSource(
       controller.state.activeSource = { ...activeSource, urlSource };
       controller.state.sources = controller.state.sources.map((item) => item.id === "original" ? { ...item, urlSource } : item);
       changed();
-    })().catch(() => { /* Optional diagnostics must never interrupt playback. */ });
+    })().catch(() => { /* Optional diagnostics must never interrupt playback. */ }).finally(() => {
+      sourceInfoInFlight = false;
+      if (!sourceInfoQueued) return;
+      sourceInfoQueued = false;
+      refreshOriginalSourceInfo();
+    });
   }
   function rememberPlaying() {
     wasPlaying = true;
@@ -690,14 +707,24 @@ export function attachVideoSource(
         const HlsCtor = await (options.loadHls?.() ?? import("hls.js/light").then((module) => module.default));
         if (disposed || epoch !== generation) return;
         if (HlsCtor.isSupported()) {
-          hls = new HlsCtor({
+          const instance = new HlsCtor({
             enableWorker: true, backBufferLength: 30,
             maxBufferLength: video.preload === "metadata" ? 2 : 15,
             maxBufferSize: 4 * 1024 * 1024,
             manifestLoadingMaxRetry: 1, fragLoadingMaxRetry: 2,
           });
-          hls.on(HlsCtor.Events.ERROR, (_event, data) => {
+          hls = instance;
+          let mediaRecoveryUsed = false;
+          instance.on(HlsCtor.Events.ERROR, (_event, data) => {
             if (!data.fatal || disposed || epoch !== generation) return;
+            // A fatal media error is often a recoverable decoder/buffer hiccup.
+            // Let hls.js rebuild the media pipeline once before treating the
+            // source as unsupported.
+            if (data.type === "mediaError" && !mediaRecoveryUsed) {
+              mediaRecoveryUsed = true;
+              instance.recoverMediaError();
+              return;
+            }
             const status = data.response?.code ?? 0;
             const failedURL = new URL(data.response?.url || data.url || selected.url!, window.location.href);
             const local = isSameOriginPlaybackURL(failedURL, new URL(window.location.href));
@@ -709,8 +736,8 @@ export function attachVideoSource(
             void recover(kind, kind === "throttled" ? "视频源当前正在限流，请稍后重试" : "兼容播放失败",
               local && data.type !== "mediaError" && status !== 429 ? failedURL.href : undefined);
           });
-          hls.loadSource(selected.url);
-          hls.attachMedia(video);
+          instance.loadSource(selected.url);
+          instance.attachMedia(video);
         } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
           video.src = selected.url;
           video.load();

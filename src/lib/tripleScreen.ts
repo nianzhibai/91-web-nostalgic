@@ -192,7 +192,11 @@ export class TripleScreenRenderer {
     );
     this.resizeObserver?.disconnect();
     window.removeEventListener("resize", this.handleResize);
+    const gl = this.gl;
     this.releaseResources(true);
+    // Browsers cap live WebGL contexts per page. Release this one now instead
+    // of waiting for garbage collection after many player instances.
+    gl?.getExtension("WEBGL_lose_context")?.loseContext();
     this.canvas.remove();
   }
 

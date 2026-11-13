@@ -37,7 +37,7 @@ const css = readFileSync(
 
 test("backup restore is reachable from the system navigation", () => {
   assert.match(app, /path="backup"[\s\S]*?<BackupPage \/>/);
-  assert.match(layout, /to="\/admin\/backup"[\s\S]*?备份恢复/);
+  assert.match(layout, /\{ to: "\/admin\/backup", Icon: ArchiveRestore \}/);
   assert.doesNotMatch(app, /path="\/tmp"/);
 });
 
@@ -64,8 +64,7 @@ test("restore acknowledgement stays bounded and survives the planned restart gap
 test("restore confirmation input uses the shared theme-aware field palette", () => {
   assert.match(page, /className="admin-input"/);
   assert.match(css, /\.admin-form__row textarea,\s*\.admin-input \{[\s\S]*?background: var\(--bg-sunken\)/);
-  assert.match(css, /\.admin-input:focus \{[\s\S]*?border-color: var\(--border-accent\)/);
-  assert.match(css, /box-shadow:[^;]*var\(--accent-soft\)/);
+  assert.match(css, /\.admin-input:focus \{[\s\S]*?border-color: var\(--border-accent\);[\s\S]*?box-shadow: var\(--ring\)/);
 });
 
 test("backup creation uses credential-neutral backup wording", () => {
@@ -250,7 +249,7 @@ test("backup loading keeps the fixed page shell and leaves backend data blank", 
 test("migration upload uses resumable checkpoints and one whole-archive hash", () => {
   assert.doesNotMatch(api, /Content-Digest|X-Chunk-SHA256/);
   assert.match(api, /\/backup-uploads\/\$\{encodeURIComponent\(id\)\}\/chunks\/\$\{index\}/);
-  assert.match(page, /sha256Blob\(selectedFile, hashController\.signal\)/);
+  assert.match(page, /sha256Blob\(selectedFile, signal\)/);
   assert.doesNotMatch(page, /sha256Blob\(blob/);
   assert.match(page, /finalizeBackupUpload\(session\.id, archiveHash\)/);
   assert.match(api, /JSON\.stringify\(\{ sha256 \}\)/);
@@ -377,7 +376,7 @@ test("active backup task keeps metrics, percentage, and cancellation above the p
   );
   assert.match(
     activeTask,
-    /className="backup-task__progress-row"[\s\S]*?className="backup-task__meta"[\s\S]*?className="backup-task__percent"[\s\S]*?onClick=\{handleCancelBackup\}[\s\S]*?className="backup-progress"/
+    /className="backup-task__progress-row"[\s\S]*?className="backup-task__meta"[\s\S]*?className="backup-task__percent"[\s\S]*?onClick=\{\(\) => setCancelBackupOpen\(true\)\}[\s\S]*?className="backup-progress"/
   );
   assert.match(
     css,
@@ -392,7 +391,7 @@ test("active backup task keeps metrics, percentage, and cancellation above the p
 test("active backup cancellation uses the transparent ordinary button style", () => {
   assert.match(
     page,
-    /taskActive\(current\) && current\.cancellable[\s\S]*?className="admin-btn is-transparent"[\s\S]*?onClick=\{handleCancelBackup\}/
+    /taskActive\(current\) && current\.cancellable[\s\S]*?className="admin-btn is-transparent"[\s\S]*?onClick=\{\(\) => setCancelBackupOpen\(true\)\}/
   );
   assert.doesNotMatch(page, /className="admin-btn is-stop" onClick=\{handleCancelBackup\}/);
   assert.match(

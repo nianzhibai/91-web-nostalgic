@@ -86,7 +86,7 @@ test("public and admin video navigation share the supplied Font Awesome icon", (
   assert.match(videoIconSource, /viewBox="0 0 576 512"/);
   assert.match(videoIconSource, /M549\.7 124\.1C543\.5 100\.4 524\.9 81\.8 501\.4 75\.5/);
   assert.match(mainNavSource, /\{ to: "\/list", label: "视频", icon: VideoIcon \}/);
-  assert.match(adminLayoutSource, /<VideoIcon size=\{15\} \/>/);
+  assert.match(adminLayoutSource, /\{ to: "\/admin\/videos", Icon: VideoIcon \}/);
 });
 
 test("admin navigation uses the supplied Font Awesome icon", () => {

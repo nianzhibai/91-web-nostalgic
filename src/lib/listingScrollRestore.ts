@@ -10,6 +10,12 @@ import {
 
 // v2 only stores measurements from the responsive card grid.
 export const LISTING_SCROLL_STORAGE_PREFIX = "listing_scroll_v2:";
+/** History keys with a stored entry, oldest first; bounds sessionStorage use. */
+const LISTING_SCROLL_INDEX_KEY = "listing_scroll_v2_index";
+const MAX_LISTING_SCROLL_ENTRIES = 20;
+// A one-column phone grid stores one row per video. Past this depth the rows
+// are re-estimated on return instead of growing each entry without limit.
+const MAX_STORED_GRID_ROWS = 600;
 
 export type ListingScrollEntry = {
   queryKey: string;
@@ -83,13 +89,41 @@ export function writeListingScrollEntry(
   entry: ListingScrollEntry
 ): void {
   if (!storage || !historyKey) return;
+  const stored =
+    entry.grid && entry.grid.measurements.length > MAX_STORED_GRID_ROWS
+      ? { ...entry, grid: undefined }
+      : entry;
+  const value = JSON.stringify(stored);
   try {
-    storage.setItem(
-      listingScrollStorageKey(historyKey),
-      JSON.stringify(entry)
-    );
+    const index = readListingScrollIndex(storage).filter((key) => key !== historyKey);
+    index.push(historyKey);
+    while (index.length > MAX_LISTING_SCROLL_ENTRIES) {
+      storage.removeItem(listingScrollStorageKey(index.shift()!));
+    }
+    storage.setItem(LISTING_SCROLL_INDEX_KEY, JSON.stringify(index));
+    try {
+      storage.setItem(listingScrollStorageKey(historyKey), value);
+    } catch {
+      // Quota exceeded: older entries are the least likely to be revisited.
+      for (const key of index.splice(0, index.length - 1)) {
+        storage.removeItem(listingScrollStorageKey(key));
+      }
+      storage.setItem(LISTING_SCROLL_INDEX_KEY, JSON.stringify(index));
+      storage.setItem(listingScrollStorageKey(historyKey), value);
+    }
   } catch {
     // 同上：写不进去只影响返回时的位置恢复。
+  }
+}
+
+function readListingScrollIndex(storage: ListingScrollStorage): string[] {
+  try {
+    const parsed = JSON.parse(storage.getItem(LISTING_SCROLL_INDEX_KEY) ?? "[]");
+    return Array.isArray(parsed)
+      ? parsed.filter((key): key is string => typeof key === "string" && key !== "")
+      : [];
+  } catch {
+    return [];
   }
 }
 

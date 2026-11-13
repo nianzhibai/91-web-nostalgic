@@ -17,7 +17,7 @@ type ActiveLogRequest = {
 
 type RefreshOutcome =
   | { status: "success"; catchUp: boolean }
-  | { status: "failed" | "busy" | "cancelled" };
+  | { status: "failed" | "busy" | "cancelled" | "unauthorized" };
 
 type LoadTailOptions = {
   interrupt: boolean;
@@ -179,7 +179,7 @@ export function useRuntimeLogs({ autoRefresh, filters = EMPTY_FILTERS }: { autoR
           return { status: "cancelled" };
         }
         setError(loadError instanceof Error ? loadError.message : "日志加载失败");
-        return { status: "failed" };
+        return { status: loadError instanceof api.UnauthorizedError ? "unauthorized" : "failed" };
       } finally {
         if (requestIsCurrent(request)) {
           setLoading(false);
@@ -253,7 +253,7 @@ export function useRuntimeLogs({ autoRefresh, filters = EMPTY_FILTERS }: { autoR
         return { status: "cancelled" };
       }
       setError(loadError instanceof Error ? loadError.message : "日志加载失败");
-      return { status: "failed" };
+      return { status: loadError instanceof api.UnauthorizedError ? "unauthorized" : "failed" };
     } finally {
       finishRequest(request);
     }
@@ -319,7 +319,8 @@ export function useRuntimeLogs({ autoRefresh, filters = EMPTY_FILTERS }: { autoR
       const outcome = readyRef.current
         ? await pollLogs()
         : await loadTail({ interrupt: false, showProgress: false });
-      if (cancelled || document.hidden) return;
+      // An expired session never recovers by polling; auth redirects to login.
+      if (cancelled || document.hidden || outcome.status === "unauthorized") return;
 
       if (outcome.status === "failed") {
         failures += 1;

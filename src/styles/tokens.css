@@ -1,15 +1,17 @@
 /* =========================================================
  * Design Tokens
  *
- * 两套主题，与后端主题设置一一对应：
- *   [data-theme="dark"]   暗黑 + 暖橙（默认 / 兜底）
- *   [data-theme="light"]  奶油白 + 樱花粉
+ * 两套主题：
+ *   [data-theme="dark"]  暗色（默认 / 兜底）
+ *   [data-theme="light"]  亮色
  *
  * 切换方式：
  *   document.documentElement.setAttribute("data-theme", "dark" | "light")
  *
  * 设计约束：
- *   - 两套用相同的 token key，组件 CSS 一行不动
+ *   - 中性锌灰阶 + 单色主操作色（暗色下为近白，亮色下为近黑），保持界面安静
+ *   - 品牌玫红只用于极少数强调：Logo、进度、实时状态
+ *   - 两套主题与选择器预览共用 token，组件使用语义颜色
  *   - 间距 / 圆角 / 字号 / 过渡等"非主题"变量挂在 :root
  * ========================================================= */
 
@@ -33,6 +35,11 @@
   --radius-xl: 22px;
   --radius-pill: 999px;
 
+  /* ----- 字体 ----- */
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans CJK SC", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+
   /* ----- 字号 ----- */
   --font-xs: 11px;
   --font-sm: 12px;
@@ -49,6 +56,7 @@
   --weight-medium: 500;
   --weight-semibold: 600;
   --weight-bold: 700;
+  --weight-extrabold: 800;
 
   /* ----- 行高 ----- */
   --line-tight: 1.25;
@@ -68,6 +76,11 @@
   --transition-fast: var(--duration-fast) var(--ease-out);
   --transition-normal: var(--duration-normal) var(--ease-out);
   --transition-slow: var(--duration-slow) var(--ease-out);
+
+  /* ----- 焦点 ----- */
+  /* 字段聚焦用 --ring 光晕；按钮、链接与卡片的键盘焦点用双层描边。 */
+  --ring: 0 0 0 3px var(--accent-soft);
+  --focus-ring: 0 0 0 2px var(--bg-page), 0 0 0 4px var(--accent);
 
   /* ----- 层级 ----- */
   --z-nav: 50;
@@ -89,6 +102,8 @@
   --bg-sunken: #0a0b0f;
   --bg-skeleton: #252831;
   --bg-overlay: rgba(8, 9, 13, 0.78);
+  --bg-hover: rgba(255, 255, 255, 0.06);
+  --bg-active: rgba(255, 255, 255, 0.06);
 
   /* 半透明玻璃 */
   --glass-nav: rgba(13, 14, 19, 0.78);
@@ -152,6 +167,7 @@
   --drive-onedrive: #4cabea;
   --drive-webdav: #2aa7c8;
   --drive-localstorage: #35b88f;
+  --drive-googledrive: #4285f4;
 
   /* ----- 阴影 ----- */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
@@ -194,6 +210,8 @@
   --bg-sunken: #fbeaef;
   --bg-skeleton: #f3e5ea;
   --bg-overlay: rgba(255, 240, 244, 0.82);
+  --bg-hover: rgba(0, 0, 0, 0.04);
+  --bg-active: rgba(0, 0, 0, 0.05);
 
   /* 半透明玻璃（白底叠透明粉） */
   --glass-nav: rgba(255, 250, 252, 0.78);
@@ -249,6 +267,7 @@
   --drive-onedrive: #2f95cf;
   --drive-webdav: #208aa8;
   --drive-localstorage: #239978;
+  --drive-googledrive: #3b78e0;
 
   /* ----- 阴影（粉色柔投影 + 一层中性） ----- */
   --shadow-sm: 0 1px 2px rgba(180, 90, 120, 0.08);

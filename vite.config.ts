@@ -1,7 +1,7 @@
 import { defineConfig, type Plugin, type ProxyOptions } from "vite";
 import react from "@vitejs/plugin-react";
 import { createPlayerHoverStylesPlugin } from "./scripts/hoverStyles.mjs";
-import { frontendPreview } from "./scripts/frontendPreview";
+import { frontendPreview } from "./scripts/frontendPreview.ts";
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";

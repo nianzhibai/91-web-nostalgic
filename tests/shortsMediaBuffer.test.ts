@@ -12,6 +12,7 @@ import {
   FIRST_FRAME_WARM_TIME,
   getPreloadAheadCount,
   getVideoWindowBounds,
+  planSlideMedia,
   PRELOAD_AHEAD_COUNT,
   shouldWarmFirstFrame,
   preloadBufferSecondsFor,
@@ -231,6 +232,75 @@ test("aggressive preloading waits for the active video buffer", () => {
   // 下一条仍由页面挂源并用 metadata 轻量准备，不属于这个深度计算。
   assert.equal(getPreloadAheadCount(false), 0);
   assert.ok(getPreloadAheadCount(true) > getPreloadAheadCount(false));
+});
+
+// ---------------------------------------------------------------------------
+// 每一屏的媒体安排
+// ---------------------------------------------------------------------------
+
+function plan(overrides: Partial<Parameters<typeof planSlideMedia>[0]> = {}) {
+  return planSlideMedia({
+    offset: 0,
+    inCacheWindow: false,
+    activeReadyForPreload: false,
+    cached: false,
+    hasPlaybackUrl: false,
+    usesSharedVideo: false,
+    ...overrides,
+  });
+}
+
+test("the next video is always prepared and full preloading waits for the active buffer", () => {
+  assert.deepEqual(plan({ offset: 0 }), {
+    shouldMount: true, shouldLoad: true, shouldEagerLoad: true, shouldRetainCached: false,
+  });
+  // 下一条始终挂源，但只用 metadata 轻量准备
+  assert.deepEqual(plan({ offset: 1 }), {
+    shouldMount: true, shouldLoad: true, shouldEagerLoad: false, shouldRetainCached: false,
+  });
+  assert.equal(plan({ offset: 2 }).shouldMount, false);
+  // 授权后向后两条用 auto 全速拉取，第三条仍不动
+  assert.equal(plan({ offset: 1, activeReadyForPreload: true }).shouldEagerLoad, true);
+  assert.equal(plan({ offset: 2, activeReadyForPreload: true }).shouldEagerLoad, true);
+  assert.equal(plan({ offset: 3, activeReadyForPreload: true }).shouldMount, false);
+  // 自适应流只预载紧邻的下一条
+  assert.equal(
+    plan({ offset: 2, activeReadyForPreload: true, hasPlaybackUrl: true }).shouldLoad,
+    false
+  );
+});
+
+test("revoking the preload grant downgrades buffered videos ahead instead of unmounting them", () => {
+  // 当前屏暂停或卡顿时授权被收回：+2 已经下过的数据不能被丢掉重下。
+  const granted = plan({ offset: 2, activeReadyForPreload: true, cached: true });
+  const revoked = plan({ offset: 2, activeReadyForPreload: false, cached: true });
+  assert.equal(granted.shouldEagerLoad, true);
+  assert.deepEqual(revoked, {
+    shouldMount: true, shouldLoad: true, shouldEagerLoad: false, shouldRetainCached: true,
+  });
+  // 还没缓冲过的照旧不占资源，预载窗口之外的也不保留
+  assert.equal(plan({ offset: 2, cached: false }).shouldMount, false);
+  assert.equal(plan({ offset: 3, cached: true }).shouldMount, false);
+});
+
+test("buffered videos in the cache window keep their source for swiping back and forth", () => {
+  assert.deepEqual(plan({ offset: -2, inCacheWindow: true, cached: true }), {
+    shouldMount: true, shouldLoad: true, shouldEagerLoad: false, shouldRetainCached: true,
+  });
+  // 窗口内但没缓冲过：只留 <video> 壳，不绑定 src
+  assert.deepEqual(plan({ offset: -2, inCacheWindow: true }), {
+    shouldMount: true, shouldLoad: false, shouldEagerLoad: false, shouldRetainCached: false,
+  });
+});
+
+test("the iOS shared-video branch only gives the active slide its own media", () => {
+  for (const offset of [-1, 1, 2]) {
+    assert.deepEqual(
+      plan({ offset, usesSharedVideo: true, inCacheWindow: true, cached: true, activeReadyForPreload: true }),
+      { shouldMount: false, shouldLoad: false, shouldEagerLoad: false, shouldRetainCached: false }
+    );
+  }
+  assert.equal(plan({ usesSharedVideo: true }).shouldLoad, true);
 });
 
 // ---------------------------------------------------------------------------

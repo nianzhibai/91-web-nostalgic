@@ -27,6 +27,7 @@ import { useToast } from "@/components/ToastContext";
 import { useAdminRouteActive } from "./AdminRouteCache";
 import { useAdminFloatingActionSpace } from "./useAdminFloatingActionSpace";
 import { useAdminResource } from "./useAdminResource";
+import { ResourceErrorBanners } from "./ResourceErrorBanners";
 
 const RESUME_KEY = "video-site-91-backup-upload-v1";
 const RESTORE_CONFIRMATION_GRACE_MS = 30_000;
@@ -338,26 +339,30 @@ export function BackupPage() {
   const [uploading, setUploading] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
   const [resumeHint, setResumeHint] = useState<ResumeState | null>(() => readResumeState());
+  const [cancelUploadOpen, setCancelUploadOpen] = useState(false);
+  const [cancelingUpload, setCancelingUpload] = useState(false);
+  const [cancelBackupOpen, setCancelBackupOpen] = useState(false);
+  const [cancelingBackup, setCancelingBackup] = useState(false);
   const localFileInput = useRef<HTMLInputElement>(null);
-  const uploadAbort = useRef<AbortController | null>(null);
-  const uploadHashAbort = useRef<AbortController | null>(null);
-  const pauseRequested = useRef(false);
+  // One controller per upload run covers hashing, chunk requests and retry
+  // waits, so pausing always stops the run that is actually live.
+  const uploadRun = useRef<AbortController | null>(null);
   const restoreConfirmationStartedAt = useRef<number | null>(null);
 
   const pollingActive = routeActive && !restoring;
   const backups = useAdminResource<api.BackupList | null>(api.listBackups, {
-    queryKey: "backups", active: pollingActive, initialData: null, onUnauthorized: invalidateSession,
+    queryKey: "backups", active: pollingActive, initialData: null,
     intervalMs: (data) => {
       if (restoreSubmitting) return 500;
       return taskActive(data?.current) || data?.pendingRestore || data?.restoreProgress ? 2000 : 15_000;
     },
   });
   const outgoing = useAdminResource(api.listBackupTransfers, {
-    queryKey: "backup-transfers", active: pollingActive, initialData: [], onUnauthorized: invalidateSession,
+    queryKey: "backup-transfers", active: pollingActive, initialData: [],
     intervalMs: (items) => items.some(transferActive) ? 2000 : 15_000,
   });
   const incoming = useAdminResource(api.listBackupReceiveTransfers, {
-    queryKey: "backup-receives", active: pollingActive, initialData: [], onUnauthorized: invalidateSession,
+    queryKey: "backup-receives", active: pollingActive, initialData: [],
     intervalMs: (items) => items.some(receiveTransferActive) ? 2000 : 15_000,
   });
   const { data, setData, loading } = backups;
@@ -372,8 +377,9 @@ export function BackupPage() {
       .then((session) => {
         if (active) setUpload(session);
       })
-      .catch(() => {
-        if (!active) return;
+      .catch((error) => {
+        // A temporary failure keeps the hint; selecting the file retries.
+        if (!active || !uploadSessionGone(error)) return;
         localStorage.removeItem(RESUME_KEY);
         setResumeHint(null);
       });
@@ -502,12 +508,17 @@ export function BackupPage() {
   }
 
   async function handleCancelBackup() {
+    if (cancelingBackup) return;
+    setCancelingBackup(true);
     try {
       await api.cancelBackup();
+      setCancelBackupOpen(false);
       show("正在取消备份任务", "info");
       await backups.invalidate();
     } catch (error) {
       show(error instanceof Error ? error.message : "取消失败", "error");
+    } finally {
+      setCancelingBackup(false);
     }
   }
 
@@ -644,7 +655,10 @@ export function BackupPage() {
         const existing = await api.getBackupUpload(hint.id);
         setUpload(existing);
         return existing;
-      } catch {
+      } catch (error) {
+        // Only a session the server no longer has may be replaced; anything
+        // else fails this run and keeps the hint for a later retry.
+        if (!uploadSessionGone(error)) throw error;
         localStorage.removeItem(RESUME_KEY);
         setResumeHint(null);
       }
@@ -667,46 +681,39 @@ export function BackupPage() {
 
   async function handleUpload(selectedFile: File | null = file) {
     if (!selectedFile || uploading || finalizing) return;
+    const run = new AbortController();
+    const { signal } = run;
+    uploadRun.current = run;
     setUploading(true);
-    pauseRequested.current = false;
-    const hashController = new AbortController();
-    uploadHashAbort.current = hashController;
-    const archiveHashPromise = sha256Blob(selectedFile, hashController.signal);
+    const archiveHashPromise = sha256Blob(selectedFile, signal);
     void archiveHashPromise.catch(() => undefined);
     try {
       let session = await ensureUploadSession(selectedFile);
       const received = new Set(session.received.map((chunk) => chunk.index));
       for (let index = 0; index < session.totalChunks; index += 1) {
         if (received.has(index)) continue;
-        if (pauseRequested.current) return;
+        if (signal.aborted) return;
         const start = index * session.chunkSize;
         const end = Math.min(selectedFile.size, start + session.chunkSize);
         const blob = selectedFile.slice(start, end);
         let lastError: unknown;
         for (let attempt = 0; attempt < 3; attempt += 1) {
-          if (pauseRequested.current) return;
-          const controller = new AbortController();
-          uploadAbort.current = controller;
+          if (signal.aborted) return;
           try {
-            session = await api.putBackupUploadChunk(
-              session.id,
-              index,
-              blob,
-              controller.signal
-            );
+            session = await api.putBackupUploadChunk(session.id, index, blob, signal);
             setUpload(session);
             lastError = undefined;
             break;
           } catch (error) {
             lastError = error;
-            if (pauseRequested.current || controller.signal.aborted) return;
-            if (attempt < 2) await delay(500 * (attempt + 1));
+            if (signal.aborted) return;
+            if (attempt < 2) await delay(500 * (attempt + 1), signal);
           }
         }
         if (lastError) throw lastError;
       }
       const archiveHash = await archiveHashPromise;
-      if (pauseRequested.current) return;
+      if (signal.aborted) return;
       setUpload({
         ...session,
         state: "finalizing",
@@ -727,41 +734,41 @@ export function BackupPage() {
       show(`迁移备份 ${completed.name} 已完成校验`, "success");
       await backups.invalidate();
     } catch (error) {
-      if (pauseRequested.current) return;
+      if (signal.aborted) return;
       show(error instanceof Error ? error.message : "迁移上传失败，可稍后重试", "error");
     } finally {
-      hashController.abort();
-      if (uploadHashAbort.current === hashController) {
-        uploadHashAbort.current = null;
-      }
-      uploadAbort.current = null;
+      run.abort();
+      if (uploadRun.current === run) uploadRun.current = null;
+      // The run stays "uploading" until it has settled, so a new run can
+      // never overlap one that is still unwinding.
       setUploading(false);
       setFinalizing(false);
     }
   }
 
   function handlePause() {
-    pauseRequested.current = true;
-    uploadAbort.current?.abort();
-    uploadHashAbort.current?.abort();
-    setUploading(false);
+    const run = uploadRun.current;
+    if (!run || run.signal.aborted) return;
+    run.abort();
     show("上传已暂停，已完成分片会保留 72 小时", "info");
   }
 
   async function handleCancelUpload() {
-    if (!upload) return;
-    pauseRequested.current = true;
-    uploadAbort.current?.abort();
-    uploadHashAbort.current?.abort();
+    if (!upload || cancelingUpload) return;
+    setCancelingUpload(true);
+    uploadRun.current?.abort();
     try {
       await api.cancelBackupUpload(upload.id);
       localStorage.removeItem(RESUME_KEY);
       setResumeHint(null);
       setUpload(null);
       setFile(null);
+      setCancelUploadOpen(false);
       show("迁移上传已取消并清理", "success");
     } catch (error) {
       show(error instanceof Error ? error.message : "取消上传失败", "error");
+    } finally {
+      setCancelingUpload(false);
     }
   }
 
@@ -871,16 +878,11 @@ export function BackupPage() {
       className="admin-page admin-page--with-floating-actions backup-page"
       aria-busy={loading || undefined}
     >
-      {[
-        { title: "备份列表", resource: backups },
-        { title: "发送任务", resource: outgoing },
-        { title: "接收任务", resource: incoming },
-      ].map(({ title, resource }) => resource.error && !restoring && (
-        <div className="admin-detail-error" role="alert" key={title}>
-          {title}更新失败：{resource.error}
-          <button type="button" className="admin-btn" onClick={() => void resource.refresh()}>重试</button>
-        </div>
-      ))}
+      <ResourceErrorBanners failures={restoring ? [] : [
+        { label: "备份列表更新失败", error: backups.error, retry: backups.refresh },
+        { label: "发送任务更新失败", error: outgoing.error, retry: outgoing.refresh },
+        { label: "接收任务更新失败", error: incoming.error, retry: incoming.refresh },
+      ]} />
       <section className="backup-overview" aria-label="备份空间概览">
         <div className="backup-stat">
           <span>预计数据量</span>
@@ -915,7 +917,7 @@ export function BackupPage() {
               <button
                 type="button"
                 className="admin-btn is-transparent"
-                onClick={handleCancelBackup}
+                onClick={() => setCancelBackupOpen(true)}
               >
                 取消
               </button>
@@ -1111,7 +1113,7 @@ export function BackupPage() {
                 <button
                   type="button"
                   className="admin-btn"
-                  onClick={handleCancelUpload}
+                  onClick={() => setCancelUploadOpen(true)}
                   disabled={finalizing}
                 >
                   取消
@@ -1274,6 +1276,26 @@ export function BackupPage() {
         loading={deleting}
         onCancel={() => setDeleteTarget(null)}
         onConfirm={handleDelete}
+      />
+      <ConfirmModal
+        open={cancelUploadOpen}
+        title="取消上传"
+        message="确定要取消上传吗？服务器上已接收的分片会被清理，之后需要重新上传。"
+        danger
+        hideIcon
+        loading={cancelingUpload}
+        onCancel={() => setCancelUploadOpen(false)}
+        onConfirm={handleCancelUpload}
+      />
+      <ConfirmModal
+        open={cancelBackupOpen}
+        title="取消备份"
+        message="确定要取消正在进行的备份吗？"
+        danger
+        hideIcon
+        loading={cancelingBackup}
+        onCancel={() => setCancelBackupOpen(false)}
+        onConfirm={handleCancelBackup}
       />
 
       <Modal
@@ -1541,6 +1563,13 @@ export function BackupPage() {
   );
 }
 
-function delay(milliseconds: number) {
-  return new Promise<void>((resolve) => window.setTimeout(resolve, milliseconds));
+function delay(milliseconds: number, signal: AbortSignal) {
+  return new Promise<void>((resolve) => {
+    const timer = window.setTimeout(resolve, milliseconds);
+    signal.addEventListener("abort", () => { window.clearTimeout(timer); resolve(); }, { once: true });
+  });
+}
+
+function uploadSessionGone(error: unknown) {
+  return error instanceof api.APIResponseError && (error.status === 404 || error.status === 410);
 }

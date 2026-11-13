@@ -77,18 +77,22 @@ function previewHarness() {
   };
 }
 
-test("card previews are independent and the global switch releases every card", () => {
+const start = (harness: ReturnType<typeof previewHarness>, id: string) =>
+  act(() => harness.card(id).startPreview());
+
+test("only one card previews at a time and the global switch releases every card", () => {
   previewController.setEnabled(true);
   const harness = previewHarness();
   try {
-    harness.startBoth();
+    start(harness, "first");
     assert.equal(harness.card("first").shouldRenderPreview, true);
-    assert.equal(harness.card("second").shouldRenderPreview, true);
-    act(() => harness.card("first").stopPreview());
+    start(harness, "second");
     assert.equal(harness.card("first").shouldRenderPreview, false);
-    assert.equal(harness.card("second").shouldRenderPreview, true);
     assert.equal(harness.media("first").src, "");
-    act(() => harness.card("first").startPreview());
+    assert.equal(harness.card("second").shouldRenderPreview, true);
+    act(() => harness.card("second").stopPreview());
+    assert.equal(harness.card("second").shouldRenderPreview, false);
+    start(harness, "first");
     act(() => previewController.setEnabled(false));
     for (const id of ["first", "second"]) {
       assert.equal(harness.card(id).shouldRenderPreview, false);
@@ -106,21 +110,22 @@ test("hidden panels, offscreen cards and retained navigation release their previ
   previewController.setEnabled(true);
   const harness = previewHarness();
   try {
-    harness.startBoth();
+    start(harness, "first");
     harness.updateFirst({ active: false });
     assert.equal(harness.card("first").shouldRenderPreview, false);
-    assert.equal(harness.card("second").shouldRenderPreview, true);
-    act(() => harness.card("first").startPreview());
+    start(harness, "first");
     assert.equal(harness.card("first").shouldRenderPreview, false);
     harness.updateFirst({ active: true });
-    harness.startBoth();
+    start(harness, "second");
+    harness.updateFirst({ active: false });
+    assert.equal(harness.card("second").shouldRenderPreview, true);
+    harness.updateFirst({ active: true });
+    start(harness, "first");
     harness.updateFirst({ inView: false });
     assert.equal(harness.card("first").shouldRenderPreview, false);
-    assert.equal(harness.card("second").shouldRenderPreview, true);
     harness.updateFirst({ inView: true });
-    harness.startBoth();
+    start(harness, "second");
     harness.navigate("/video/next");
-    assert.equal(harness.card("first").shouldRenderPreview, false);
     assert.equal(harness.card("second").shouldRenderPreview, false);
   } finally { harness.close(); previewController.setEnabled(false); }
 });
@@ -129,19 +134,55 @@ test("new sources reset playback and repeated contact does not restart the loade
   previewController.setEnabled(true);
   const harness = previewHarness();
   try {
-    harness.startBoth();
+    start(harness, "first");
     act(() => {
       harness.card("first").handlePreviewPlay();
       harness.card("first").finishPreviewLoader();
     });
-    act(() => harness.card("first").startPreview());
+    start(harness, "first");
     assert.equal(harness.card("first").previewState, "playing");
     assert.equal(harness.card("first").showPreviewLoader, false);
     harness.updateFirst({ src: "/replacement.mp4" });
     assert.equal(harness.card("first").shouldRenderPreview, false);
-    assert.equal(harness.card("second").shouldRenderPreview, true);
     harness.updateFirst({ src: "" });
-    act(() => harness.card("first").startPreview());
+    start(harness, "first");
     assert.equal(harness.card("first").shouldRenderPreview, false);
   } finally { harness.close(); previewController.setEnabled(false); }
+});
+
+test("touch previews start only after a still hold, never while scrolling", (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  t.mock.method(window, "setTimeout", (fn: () => void, ms: number) => globalThis.setTimeout(fn, ms));
+  t.mock.method(window, "clearTimeout", (id: ReturnType<typeof setTimeout>) => globalThis.clearTimeout(id));
+  previewController.setEnabled(true);
+  let preview!: ReturnType<typeof useCardPreview>;
+  function TouchCard() {
+    preview = useCardPreview({ id: "touch", src: "/touch.mp4", inView: true });
+    return createElement("div", { "data-testid": "card", ...preview.touchPreviewHandlers });
+  }
+  let view!: ReturnType<typeof render>;
+  act(() => {
+    view = render(createElement(MemoryRouter, null, createElement(TouchCard)));
+  });
+  const card = view.getByTestId("card");
+  const touch = (x: number, y: number) => ({ touches: [{ clientX: x, clientY: y }] });
+  try {
+    // A flick moves past the tolerance before the hold elapses.
+    fireEvent.touchStart(card, touch(10, 100));
+    fireEvent.touchMove(card, touch(10, 60));
+    act(() => t.mock.timers.tick(1000));
+    assert.equal(preview.shouldRenderPreview, false);
+
+    // A tap ends before the hold elapses.
+    fireEvent.touchStart(card, touch(10, 100));
+    fireEvent.touchEnd(card, { touches: [] });
+    act(() => t.mock.timers.tick(1000));
+    assert.equal(preview.shouldRenderPreview, false);
+
+    // A resting finger (small jitter allowed) starts the preview.
+    fireEvent.touchStart(card, touch(10, 100));
+    fireEvent.touchMove(card, touch(13, 103));
+    act(() => t.mock.timers.tick(1000));
+    assert.equal(preview.shouldRenderPreview, true);
+  } finally { view.unmount(); previewController.setEnabled(false); }
 });

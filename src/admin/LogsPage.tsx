@@ -809,9 +809,7 @@ export function LogsPage() {
         hideIcon
         modalClassName="admin-modal--logs-clear"
         loading={clearing}
-        onCancel={() => {
-          if (!clearing) setClearConfirmOpen(false);
-        }}
+        onCancel={() => setClearConfirmOpen(false)}
         onConfirm={() => void clearRuntimeLogs()}
       />
     </>

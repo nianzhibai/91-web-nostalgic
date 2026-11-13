@@ -53,7 +53,7 @@ const adminCss = readFileSync(
 
 test("admin log viewer is reachable from the authenticated admin layout", () => {
   assert.match(appSource, /path="logs"[\s\S]*?<LogsPage \/>/);
-  assert.match(layoutSource, /to="\/admin\/logs"[\s\S]*?<ScrollText size=\{15\} \/>[\s\S]*?日志查看/);
+  assert.match(layoutSource, /\{ to: "\/admin\/logs", Icon: ScrollText \}/);
   assert.match(
     logsPageSource,
     /useRuntimeLogs\(\{ autoRefresh: autoRefresh && routeActive, filters \}\)/

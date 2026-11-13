@@ -19,7 +19,6 @@ import { importStageLabel } from "./telegram/config";
 import { useTelegramAvailability } from "./telegram/useTelegramAvailability";
 import { useTelegramStatus } from "./telegram/TelegramStatusProvider";
 import { useAdminResource } from "./useAdminResource";
-import { useAuth } from "./AuthContext";
 import { TelegramUploadSettings } from "./telegram/TelegramUploadSettings";
 import "@/styles/telegram.css";
 
@@ -69,10 +68,9 @@ export function TelegramPage() {
 function TelegramWorkspace() {
   const active = useAdminRouteActive();
   const { show } = useToast();
-  const { invalidateSession } = useAuth();
   const statusResource = useTelegramStatus();
   const jobsResource = useAdminResource((signal) => api.listTelegramImports(RECENT_IMPORT_LIMIT, signal), {
-    queryKey: "telegram-imports", active, initialData: [], onUnauthorized: invalidateSession,
+    queryKey: "telegram-imports", active, initialData: [],
     intervalMs: (items) => items.some((job) => activeImportStates.has(job.state)) ? 5000 : 15_000,
   });
   const status = statusResource.data;

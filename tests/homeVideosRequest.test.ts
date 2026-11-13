@@ -1,15 +1,17 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { APIResponseError, UnauthorizedError } from "@91/client";
+import { client } from "../src/client";
 import {
-  fetchHomeVideos,
-  fetchLatestHomeVideos,
-  fetchListing,
   fetchTags,
   fetchUploadTags,
   invalidateTagsCache,
   readCachedTags,
 } from "../src/data/videos";
+
+// The app consumes feeds through `fetchVideoFeed`; these cover the SDK's legacy
+// listing endpoints directly instead of through unused app re-exports.
+const { listHome: fetchHomeVideos, listLatest: fetchLatestHomeVideos, list: fetchListing } = client.videos;
 
 test("home recommendations send only the requested display count", async (t) => {
   const originalFetch = globalThis.fetch;

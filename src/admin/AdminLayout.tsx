@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ComponentType } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router";
 import { useNativeBackHandler } from "@/lib/useNativeBack";
 import "@/styles/admin-controls.css";
@@ -31,6 +31,34 @@ import {
   resolveAdminScrollTarget,
   type AdminScrollRouteIdentity,
 } from "./adminScrollRestoration";
+
+// Titles come from ADMIN_PAGE_TITLES so navigation and page headers agree.
+const ADMIN_NAV_GROUPS: { label: string; links: { to: string; Icon: ComponentType<{ size?: number }> }[] }[] = [
+  {
+    label: "资源",
+    links: [
+      { to: "/admin/drives", Icon: HardDrive },
+      { to: "/admin/crawlers", Icon: SpiderIcon },
+      { to: "/admin/telegram", Icon: TelegramIcon },
+    ],
+  },
+  {
+    label: "管理",
+    links: [
+      { to: "/admin/videos", Icon: VideoIcon },
+      { to: "/admin/tags", Icon: Tags },
+      { to: "/admin/users", Icon: Users },
+    ],
+  },
+  {
+    label: "系统",
+    links: [
+      { to: "/admin/backup", Icon: ArchiveRestore },
+      { to: "/admin/logs", Icon: ScrollText },
+      { to: "/admin/settings", Icon: SlidersHorizontal },
+    ],
+  },
+];
 
 const ADMIN_MOBILE_MEDIA_QUERY = "(max-width: 768px)";
 type AdminScrollOwner = "document" | "main";
@@ -73,9 +101,8 @@ function useAdminPageModulePreload(pathname: string) {
 
 export function AdminLayout() {
   const location = useLocation();
-  const { invalidateSession } = useAuth();
   return (
-    <TelegramStatusProvider workspaceActive={location.pathname.startsWith("/admin/telegram")} onUnauthorized={invalidateSession}>
+    <TelegramStatusProvider workspaceActive={location.pathname.startsWith("/admin/telegram")}>
       <AdminLayoutContent />
     </TelegramStatusProvider>
   );
@@ -371,15 +398,10 @@ function AdminLayoutContent() {
   async function handleLogout() {
     if (loggingOut) return;
     setLoggingOut(true);
-    try {
-      await logout();
-      show("已退出登录", "success");
-      navigate("/login", { replace: true });
-    } catch {
-      show("退出失败", "error");
-    } finally {
-      setLoggingOut(false);
-    }
+    await logout();
+    setLoggingOut(false);
+    show("已退出登录", "success");
+    navigate("/login", { replace: true });
   }
 
   return (
@@ -417,134 +439,27 @@ function AdminLayoutContent() {
         aria-label="后台导航"
       >
         <nav className="admin-nav" onClick={() => setMobileNavigationOpen(false)}>
-          <div className="admin-nav__group">
-            <span className="admin-nav__group-label">资源</span>
-            <NavLink
-              to="/admin/drives"
-              className={({ isActive }) =>
-                `admin-nav__link ${isActive ? "is-active" : ""}`
-              }
-            >
-              <span className="admin-nav__icon" aria-hidden="true">
-                <HardDrive size={15} />
-              </span>
-              <span className="admin-nav__text">
-                <span className="admin-nav__title">网盘管理</span>
-              </span>
-            </NavLink>
-            <NavLink
-              to="/admin/crawlers"
-              className={({ isActive }) =>
-                `admin-nav__link ${isActive ? "is-active" : ""}`
-              }
-            >
-              <span className="admin-nav__icon" aria-hidden="true">
-                <SpiderIcon size={15} />
-              </span>
-              <span className="admin-nav__text">
-                <span className="admin-nav__title">爬虫管理</span>
-              </span>
-            </NavLink>
-            {telegramEnabled === true && (
-              <NavLink
-                to="/admin/telegram"
-                className={({ isActive }) =>
-                  `admin-nav__link ${isActive ? "is-active" : ""}`
-                }
-              >
-                <span className="admin-nav__icon" aria-hidden="true">
-                  <TelegramIcon size={15} />
-                </span>
-                <span className="admin-nav__text">
-                  <span className="admin-nav__title">Telegram</span>
-                </span>
-              </NavLink>
-            )}
-          </div>
-          <div className="admin-nav__group">
-            <span className="admin-nav__group-label">管理</span>
-            <NavLink
-              to="/admin/videos"
-              className={({ isActive }) =>
-                `admin-nav__link ${isActive ? "is-active" : ""}`
-              }
-            >
-              <span className="admin-nav__icon" aria-hidden="true">
-                <VideoIcon size={15} />
-              </span>
-              <span className="admin-nav__text">
-                <span className="admin-nav__title">视频管理</span>
-              </span>
-            </NavLink>
-            <NavLink
-              to="/admin/tags"
-              className={({ isActive }) =>
-                `admin-nav__link ${isActive ? "is-active" : ""}`
-              }
-            >
-              <span className="admin-nav__icon" aria-hidden="true">
-                <Tags size={15} />
-              </span>
-              <span className="admin-nav__text">
-                <span className="admin-nav__title">标签管理</span>
-              </span>
-            </NavLink>
-            <NavLink
-              to="/admin/users"
-              className={({ isActive }) =>
-                `admin-nav__link ${isActive ? "is-active" : ""}`
-              }
-            >
-              <span className="admin-nav__icon" aria-hidden="true">
-                <Users size={15} />
-              </span>
-              <span className="admin-nav__text">
-                <span className="admin-nav__title">用户管理</span>
-              </span>
-            </NavLink>
-          </div>
-          <div className="admin-nav__group">
-            <span className="admin-nav__group-label">系统</span>
-            <NavLink
-              to="/admin/backup"
-              className={({ isActive }) =>
-                `admin-nav__link ${isActive ? "is-active" : ""}`
-              }
-            >
-              <span className="admin-nav__icon" aria-hidden="true">
-                <ArchiveRestore size={15} />
-              </span>
-              <span className="admin-nav__text">
-                <span className="admin-nav__title">备份恢复</span>
-              </span>
-            </NavLink>
-            <NavLink
-              to="/admin/logs"
-              className={({ isActive }) =>
-                `admin-nav__link ${isActive ? "is-active" : ""}`
-              }
-            >
-              <span className="admin-nav__icon" aria-hidden="true">
-                <ScrollText size={15} />
-              </span>
-              <span className="admin-nav__text">
-                <span className="admin-nav__title">日志查看</span>
-              </span>
-            </NavLink>
-            <NavLink
-              to="/admin/settings"
-              className={({ isActive }) =>
-                `admin-nav__link ${isActive ? "is-active" : ""}`
-              }
-            >
-              <span className="admin-nav__icon" aria-hidden="true">
-                <SlidersHorizontal size={15} />
-              </span>
-              <span className="admin-nav__text">
-                <span className="admin-nav__title">配置面板</span>
-              </span>
-            </NavLink>
-          </div>
+          {ADMIN_NAV_GROUPS.map((group) => (
+            <div key={group.label} className="admin-nav__group">
+              <span className="admin-nav__group-label">{group.label}</span>
+              {group.links
+                .filter((link) => link.to !== "/admin/telegram" || telegramEnabled === true)
+                .map(({ to, Icon }) => (
+                  <NavLink
+                    key={to}
+                    to={to}
+                    className={({ isActive }) => `admin-nav__link ${isActive ? "is-active" : ""}`}
+                  >
+                    <span className="admin-nav__icon" aria-hidden="true">
+                      <Icon size={15} />
+                    </span>
+                    <span className="admin-nav__text">
+                      <span className="admin-nav__title">{getAdminPageTitle(to)}</span>
+                    </span>
+                  </NavLink>
+                ))}
+            </div>
+          ))}
         </nav>
       </aside>
       <AdminGlobalActions

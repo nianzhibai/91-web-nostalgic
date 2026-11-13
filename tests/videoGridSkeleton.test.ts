@@ -41,19 +41,3 @@ test("video skeleton mirrors thumbnail, title, and metadata structure", () => {
   assert.match(light, /--skeleton-shimmer-base\s*:\s*rgba\(255,\s*91,\s*138,\s*0\.12\)/);
   assert.doesNotMatch(videoCardCss, /is-compact/);
 });
-
-test("background list revalidation stays interactive while transitions remain blocking", () => {
-  assert.match(videoGridSource, /refreshMode\?: "blocking" \| "background"/);
-  assert.match(videoGridSource, /const blockingRefresh = refreshMode === "blocking"/);
-  assert.match(videoGridSource, /const backgroundRefresh = refreshMode === "background"/);
-  assert.match(videoGridSource, /\{blockingRefresh && \([\s\S]*?video-grid-refresh-overlay/);
-  assert.doesNotMatch(videoGridSource, /正在更新视频列表/);
-  assert.doesNotMatch(videoGridSource, /video-grid-refresh-overlay__status/);
-  assert.match(videoGridSource, /\{backgroundRefresh && \([\s\S]*?video-grid-background-status/);
-
-  const blockedGrid = ruleBody(videoCardCss, ".video-grid-region.is-busy .video-grid");
-  const backgroundStatus = ruleBody(videoCardCss, ".video-grid-background-status");
-  assert.match(blockedGrid, /opacity\s*:\s*0\.48/);
-  assert.match(backgroundStatus, /pointer-events\s*:\s*none/);
-  assert.doesNotMatch(videoCardCss, /\.video-grid-region\.is-background[^}]*opacity/);
-});

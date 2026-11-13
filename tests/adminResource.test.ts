@@ -455,28 +455,41 @@ test("on-demand resources retry server failures and stop polling after recovery"
   assert.equal(calls, 3);
 });
 
-test("permission failures remain resource errors while unauthorized reads stop and notify auth", async (t) => {
+test("permission failures remain resource errors while unauthorized reads stop", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
   const env = browser(t);
-  let unauthorized = 0;
   let calls = 0;
   let permission!: ReturnType<typeof useAdminResource<number>>;
   let session!: ReturnType<typeof useAdminResource<number>>;
   const forbidden = async () => { calls++; throw new api.APIResponseError(403, "Forbidden"); };
   const expired = async () => { calls++; throw new api.UnauthorizedError(); };
-  const onUnauthorized = () => { unauthorized++; };
   function Probe() {
-    permission = useAdminResource(forbidden, { active: true, intervalMs: 1000, initialData: 0, onUnauthorized });
-    session = useAdminResource(expired, { active: true, intervalMs: 1000, initialData: 0, onUnauthorized });
+    permission = useAdminResource(forbidden, { active: true, intervalMs: 1000, initialData: 0 });
+    session = useAdminResource(expired, { active: true, intervalMs: 1000, initialData: 0 });
     return null;
   }
   await env.render(createElement(Probe));
   assert.equal(permission.unauthorized, false);
   assert.equal(permission.error, "Forbidden");
   assert.equal(session.unauthorized, true);
-  assert.equal(unauthorized, 1);
   await env.tick(60_000);
   assert.equal(calls, 2);
+});
+
+test("any admin request reporting 401 expires the session once with a readable message", async (t) => {
+  let expired = 0;
+  const stop = api.onSessionExpired(() => { expired++; });
+  t.after(stop);
+  t.mock.method(globalThis, "fetch", async () => new Response("unauthorized", { status: 401 }));
+  await assert.rejects(api.listTags(), (error) => {
+    assert.ok(error instanceof api.UnauthorizedError);
+    assert.equal(error.message, "登录已过期，请重新登录");
+    return true;
+  });
+  assert.equal(expired, 1);
+  t.mock.method(globalThis, "fetch", async () => Response.json({ error: "Forbidden" }, { status: 403 }));
+  await assert.rejects(api.listTags(), /Forbidden/);
+  assert.equal(expired, 1);
 });
 
 function telegramStatus(enabled: boolean): api.TelegramStatus {

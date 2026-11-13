@@ -101,11 +101,13 @@ test("same-video overlay history does not restart detail navigation effects", ()
   );
 });
 
-test("listing previews start on touch contact and leave clicks to the detail link", () => {
+test("listing previews start after a still touch and leave clicks to the detail link", () => {
+  // The hold/scroll gate lives in useCardPreview (behavior covered in cardPreview.test.ts).
   assert.match(
     cardSource,
-    /function handleTouchStart\(\)[\s\S]*?startPreview\(\)/
+    /function handleTouchStart\(event[^)]*\)[\s\S]*?touchPreviewHandlers\.onTouchStart\(event\)/
   );
+  assert.match(cardSource, /onTouchMove=\{touchPreviewHandlers\.onTouchMove\}/);
   assert.match(
     cardSource,
     /useCardPreview\(\{ id: video\.id, src: video\.previewSrc, inView, active: routeActive \}\)/

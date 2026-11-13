@@ -128,8 +128,8 @@
   display: none;
 }
 
-/* From uiverse.io by @satyamchaudharydev */
-/* removing default style of button */
+/* Compact pill search: submit icon, field, and a clear button that appears
+ * only while there is text to clear. */
 .search-panel--uiverse button {
   border: none;
   background: none;
@@ -184,7 +184,6 @@
   visibility: hidden;
 }
 
-/* close button shown when typing */
 .search-panel--uiverse .search-panel__uiverse-input:not(:placeholder-shown) ~ .search-panel__reset {
   opacity: 1;
   visibility: visible;

@@ -1,0 +1,463 @@
+/* Detail page dialogs: delete confirmation and tag editor. */
+
+/* ---------- Delete confirm modal ---------- */
+.vd-delete-modal {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: grid;
+  place-items: center;
+  padding: var(--space-4);
+  background: var(--bg-overlay);
+  backdrop-filter: blur(8px);
+  animation: vd-delete-fade var(--duration-fast) var(--ease-out);
+}
+
+@keyframes vd-delete-fade {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.vd-delete-dialog {
+  width: min(460px, 100%);
+  max-height: 90vh;
+  max-height: 90dvh;
+  overflow: auto;
+  padding: var(--space-5);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--text-default);
+  box-shadow: var(--shadow-xl);
+  animation: vd-delete-pop var(--duration-normal) var(--ease-out);
+}
+
+@keyframes vd-delete-pop {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.vd-delete-head {
+  display: grid;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.vd-delete-title {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: var(--font-xl);
+  font-weight: var(--weight-bold);
+  line-height: var(--line-tight);
+  letter-spacing: 0;
+}
+
+.vd-delete-text {
+  margin: 0;
+  color: var(--text-default);
+  font-size: var(--font-md);
+  line-height: var(--line-relaxed);
+  overflow-wrap: anywhere;
+}
+
+.vd-delete-option {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: var(--space-2);
+  align-items: start;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.vd-delete-option input {
+  width: 16px;
+  height: 16px;
+  margin: 2px 0 0;
+  accent-color: var(--danger);
+}
+
+.vd-delete-option span {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.vd-delete-option strong {
+  color: var(--text-strong);
+  font-size: var(--font-sm);
+  font-weight: var(--weight-semibold);
+}
+
+.vd-delete-option small {
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  line-height: var(--line-relaxed);
+}
+
+.vd-delete-option:has(input:disabled) {
+  cursor: default;
+  opacity: 0.72;
+}
+
+.vd-delete-error {
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid color-mix(in srgb, var(--danger) 30%, transparent);
+  border-radius: var(--radius-sm);
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: var(--font-sm);
+  line-height: var(--line-relaxed);
+}
+
+.vd-delete-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-5);
+}
+
+.vd-delete-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 86px;
+  height: 40px;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  color: var(--text-default);
+  font-size: var(--font-sm);
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+  transition:
+    color var(--transition-fast),
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    opacity var(--transition-fast);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .vd-delete-action:hover:not(:disabled) {
+    border-color: var(--border-strong);
+    color: var(--text-strong);
+  }
+}
+
+.vd-delete-action:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.vd-delete-action:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.vd-delete-confirm {
+  border-color: var(--danger);
+  background: var(--danger);
+  color: #fff;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .vd-delete-confirm:hover:not(:disabled) {
+    border-color: var(--danger);
+    background: var(--danger);
+    color: #fff;
+    filter: brightness(1.04);
+  }
+}
+
+.vd-tag-editor-modal {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: grid;
+  place-items: center;
+  padding: var(--space-4);
+  background: var(--bg-overlay);
+  backdrop-filter: blur(8px);
+  animation: vd-delete-fade var(--duration-fast) var(--ease-out);
+}
+
+/* ---------- Tag editor modal ---------- */
+.vd-tag-editor {
+  width: min(560px, 100%);
+  max-height: min(680px, calc(100vh - var(--space-8)));
+  max-height: min(680px, calc(100dvh - var(--space-8)));
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-elevated);
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--text-default);
+  box-shadow: var(--shadow-xl);
+  overflow: hidden;
+  animation: vd-delete-pop var(--duration-normal) var(--ease-out);
+}
+
+.vd-tag-editor__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 0;
+  font-size: var(--font-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--text-default);
+  background: transparent;
+}
+
+.vd-tag-editor__close {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: 0;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    color var(--transition-fast),
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    opacity var(--transition-fast);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .vd-tag-editor__close:hover:not(:disabled) {
+    background: var(--bg-hover);
+    color: var(--text-strong);
+  }
+}
+
+.vd-tag-editor__close:disabled,
+.vd-tag-editor__chip:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.vd-tag-editor__grid {
+  display: flex;
+  flex-wrap: wrap;
+  flex: 1 1 auto;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  max-height: min(52vh, 360px);
+  overflow-y: auto;
+}
+
+.vd-tag-editor__empty {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) 0;
+  color: var(--text-faint);
+  font-size: var(--font-sm);
+  width: 100%;
+  text-align: center;
+}
+
+.vd-tag-editor__retry {
+  min-height: 30px;
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--accent-softer);
+  color: var(--accent);
+  font: inherit;
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+}
+
+.vd-tag-editor__retry:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.vd-tag-editor__chip {
+  display: inline-flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  border: 0;
+  color: var(--text-default);
+  font-size: var(--font-sm);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  transition:
+    color var(--transition-fast),
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    opacity var(--transition-fast);
+  user-select: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .vd-tag-editor__chip:hover:not(:disabled) {
+    background: var(--accent-softer);
+    color: var(--text-strong);
+  }
+}
+
+.vd-tag-editor__chip.is-active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.vd-tag-editor__chip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.vd-tag-editor__error {
+  margin: 0 var(--space-4) var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: var(--font-xs);
+  font-weight: var(--weight-semibold);
+}
+
+.vd-tag-editor__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-top: 0;
+  background: transparent;
+}
+
+.vd-tag-editor__btn {
+  height: 34px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: 0;
+  color: var(--text-default);
+  font-size: var(--font-sm);
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+  transition:
+    color var(--transition-fast),
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    opacity var(--transition-fast);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .vd-tag-editor__btn:hover:not(:disabled) {
+    background: var(--accent-softer);
+    color: var(--text-strong);
+  }
+}
+
+.vd-tag-editor__btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.vd-tag-editor__btn.is-primary {
+  background: var(--accent-gradient);
+  color: var(--text-on-accent);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .vd-tag-editor__btn.is-primary:hover:not(:disabled) {
+    filter: brightness(1.06);
+  }
+}
+
+.vd-tag-editor__btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ---------- 平板 / 窄桌面 ---------- */
+@media (max-width: 768px) {
+
+  .vd-tag-editor__chip {
+    height: 34px;
+    padding: 0 14px;
+  }
+}
+
+/* ---------- 手机 ---------- */
+@media (max-width: 480px) {
+  .vd-page__inner {
+    padding-top: var(--space-3);
+  }
+}
+
+/* ---------- 手机 ---------- */
+@media (max-width: 480px) {
+
+  .vd-delete-modal {
+    place-items: center;
+    padding: var(--space-3);
+  }
+
+  .vd-delete-dialog {
+    width: 100%;
+    padding: var(--space-4);
+  }
+
+  .vd-delete-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .vd-delete-action {
+    width: 100%;
+  }
+
+  .vd-tag-editor-modal {
+    padding: var(--space-3);
+  }
+
+  .vd-tag-editor {
+    width: 100%;
+    max-height: calc(100vh - var(--space-6));
+    max-height: calc(100dvh - var(--space-6));
+  }
+
+  .vd-tag-editor__grid {
+    max-height: 50vh;
+    padding: var(--space-3);
+  }
+
+  .vd-tag-editor__actions {
+    padding: var(--space-3);
+  }
+
+  .vd-tag-editor__btn {
+    height: 36px;
+    flex: 1 1 auto;
+  }
+}

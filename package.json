@@ -18,7 +18,7 @@
     "preview": "vite preview",
     "audit": "npm audit --audit-level=info",
     "lint": "tsc --noEmit",
-    "test": "node --import tsx --test tests/*.test.ts",
+    "test": "node --import tsx --import ./tests/helpers/ignore-styles.ts --test tests/*.test.ts",
     "check": "npm run audit && npm run lint && npm test",
     "verify": "npm run check && npm run build",
     "package": "npm run build && node scripts/package.mjs"

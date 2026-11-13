@@ -4,7 +4,6 @@ import { AdminEmptyVisual } from "@/admin/AdminEmptyVisual";
 import { AppShell } from "@/components/AppShell";
 import { InfiniteFeedStatus } from "@/components/InfiniteFeedStatus";
 import { ListingLoadError } from "@/components/ListingLoadError";
-import { PromoStrip } from "@/components/PromoStrip";
 import { SearchPanel } from "@/components/SearchPanel";
 import { SortToolbar } from "@/components/SortToolbar";
 import { TagCloud } from "@/components/TagCloud";
@@ -111,7 +110,6 @@ export default function ListingPage() {
   return (
     <AppShell>
       <div className="container page-section listing-discovery-section">
-        <PromoStrip />
         <SearchPanel
           variant="uiverse"
           placeholder=""

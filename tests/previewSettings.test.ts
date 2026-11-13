@@ -274,12 +274,15 @@ test("every card surface shares independent previews and normal link navigation"
   assert.match(hook, /const previewEnabled = usePreviewEnabled\(\)/);
   assert.match(hook, /!previewController\.isEnabled\(\) \|\| !src \|\| !active/);
   assert.match(hook, /if \(!previewEnabled \|\| !active \|\| !inView\) stopPreview\(\)/);
-  assert.doesNotMatch(hook, /getActiveId|setActiveId|setTimeout/);
+  assert.match(hook, /previewController\.claim\(owner\)/);
+  assert.doesNotMatch(hook, /getActiveId|setActiveId/);
   for (const file of ["VideoCard", "RecommendedRail", "MobileVideoCollection"]) {
     const source = readFileSync(new URL(`../src/components/${file}.tsx`, import.meta.url), "utf8");
     assert.match(source, /useCardPreview\(\{ id: video\.id, src: video\.previewSrc, inView/);
     assert.match(source, /data-preview-enabled=\{previewEnabled\}/);
-    assert.match(source, /onTouchStart=\{(?:handleTouchStart|startPreview)\}/);
+    // Every surface previews only after a still touch hold, never on contact.
+    assert.match(source, /onTouchStart=\{(?:handleTouchStart|touchPreviewHandlers\.onTouchStart)\}|\{\.\.\.touchPreviewHandlers\}/);
+    assert.doesNotMatch(source, /onTouchStart=\{startPreview\}/);
     assert.doesNotMatch(source, /shouldInterceptPreviewTap|onClickCapture|useIsActivePreview\(|getActiveId|setActiveId|onBlur=/);
     assert.match(source, /previewEnabled && shouldRenderPreview &&/);
     assert.doesNotMatch(source, /\{previewState === "(?:loading|playing|error)"/);

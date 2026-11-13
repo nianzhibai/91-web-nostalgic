@@ -40,7 +40,7 @@ test("desktop theme popover fits exactly one row of theme options", () => {
 test("system navigation orders backup, logs, then settings", () => {
   assert.match(
     layoutSource,
-    />系统<[\s\S]*?to="\/admin\/backup"[\s\S]*?to="\/admin\/logs"[\s\S]*?to="\/admin\/settings"/
+    /label: "系统"[\s\S]*?to: "\/admin\/backup"[\s\S]*?to: "\/admin\/logs"[\s\S]*?to: "\/admin\/settings"/
   );
 });
 

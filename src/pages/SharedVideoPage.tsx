@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router";
+import brandIconUrl from "@/assets/brand-icon.png";
 import linkUsedImage from "@/assets/share-link-used.webp";
 import { Footer } from "@/components/Footer";
 import { VideoInfoPanel } from "@/components/VideoInfoPanel";
@@ -12,6 +13,7 @@ import {
   VideoShareUnavailableError,
   type VideoShareClaim,
 } from "@/data/videos";
+import "@/styles/share-page.css";
 
 type LoadState = "loading" | "ready" | "unavailable" | "error";
 
@@ -78,7 +80,7 @@ export default function SharedVideoPage() {
       <header className="share-page__header">
         <div className="container share-page__header-inner">
           <div className="share-page__brand" aria-label="91">
-            <img src="/icon.png" alt="" />
+            <img src={brandIconUrl} alt="" />
           </div>
         </div>
       </header>
@@ -137,7 +139,6 @@ export default function SharedVideoPage() {
             <div className="vd-player-wrap">
               <div className="vd-player">
                 <VideoPlayer
-                  id={claim.video.id}
                   src={claim.video.videoSrc}
                   playbackUrl={claim.video.playbackUrl}
                   poster={claim.video.poster}

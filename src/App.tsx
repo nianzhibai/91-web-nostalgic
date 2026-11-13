@@ -1,6 +1,7 @@
 import {
   Suspense,
   lazy,
+  memo,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -16,8 +17,6 @@ import {
   type Location,
 } from "react-router";
 import { VideoDetailLoading } from "@/components/VideoDetailLoading";
-import { CrawlersPageLoading } from "@/admin/CrawlersPageLoading";
-import { DrivesPageLoading } from "@/admin/DrivesPageLoading";
 import { useAuth } from "@/admin/AuthContext";
 import { RequireAuth } from "@/admin/RequireAuth";
 import { RequireAdmin } from "@/admin/RequireAdmin";
@@ -55,11 +54,24 @@ const UploadPage = lazy(() => import("@/pages/UploadPage"));
 const VideoDetailPage = lazy(loadVideoDetailPage);
 const SharedVideoPage = lazy(() => import("@/pages/SharedVideoPage"));
 
-const AdminLayout = lazy(() =>
-  import("@/admin/AdminLayout").then((module) => ({
-    default: module.AdminLayout,
-  }))
+// Admin child-route skeletons stay out of the public entry chunk. They are
+// fetched together with the layout, so they are ready before a child suspends.
+const loadDrivesPageLoading = () => import("@/admin/DrivesPageLoading");
+const loadCrawlersPageLoading = () => import("@/admin/CrawlersPageLoading");
+const DrivesPageLoading = lazy(() =>
+  loadDrivesPageLoading().then((module) => ({ default: module.DrivesPageLoading }))
 );
+const CrawlersPageLoading = lazy(() =>
+  loadCrawlersPageLoading().then((module) => ({ default: module.CrawlersPageLoading }))
+);
+
+const AdminLayout = lazy(() => {
+  void loadDrivesPageLoading();
+  void loadCrawlersPageLoading();
+  return import("@/admin/AdminLayout").then((module) => ({
+    default: module.AdminLayout,
+  }));
+});
 const LoginPage = lazy(() =>
   import("@/admin/LoginPage").then((module) => ({ default: module.LoginPage }))
 );
@@ -230,7 +242,7 @@ function OtherRoutes() {
         <Route
           path="drives"
           element={
-            <PageSuspense fallback={<DrivesPageLoading />}>
+            <PageSuspense fallback={<PageSuspense><DrivesPageLoading /></PageSuspense>}>
               <DrivesPage />
             </PageSuspense>
           }
@@ -238,7 +250,7 @@ function OtherRoutes() {
         <Route
           path="crawlers"
           element={
-            <PageSuspense fallback={<CrawlersPageLoading />}>
+            <PageSuspense fallback={<PageSuspense><CrawlersPageLoading /></PageSuspense>}>
               <CrawlersPage />
             </PageSuspense>
           }
@@ -300,7 +312,27 @@ function OtherRoutes() {
   );
 }
 
-function RetainedListingSurface({
+/**
+ * The retained listing location is rebuilt from history state on every App
+ * render. Keep one object per history entry so the memoized listing surface
+ * (and every card reading the location) does not rerender behind the detail.
+ */
+function useStableListingLocation(next: Location | null): Location | null {
+  const ref = useRef(next);
+  const previous = ref.current;
+  if (
+    !next || !previous ||
+    previous.key !== next.key ||
+    previous.pathname !== next.pathname ||
+    previous.search !== next.search ||
+    previous.hash !== next.hash
+  ) {
+    ref.current = next;
+  }
+  return ref.current;
+}
+
+const RetainedListingSurface = memo(function RetainedListingSurface({
   location,
   active,
 }: {
@@ -329,7 +361,7 @@ function RetainedListingSurface({
       </RouteActivityProvider>
     </div>
   );
-}
+});
 
 function VideoDetailForeground() {
   const scrollRootRef = useRef<HTMLDivElement>(null);
@@ -382,7 +414,9 @@ export default function App() {
   const activeListingLocation = isVideoListingPath(location.pathname)
     ? location
     : null;
-  const listingLocation = listingBackground ?? activeListingLocation;
+  const listingLocation = useStableListingLocation(
+    listingBackground ?? activeListingLocation
+  );
 
   return (
     <>

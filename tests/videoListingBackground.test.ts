@@ -137,8 +137,10 @@ test("the app keeps the listing mounted behind an independently scrolling detail
   );
   assert.match(
     app,
-    /const listingLocation = listingBackground \?\? activeListingLocation;[\s\S]*?<RetainedListingSurface[\s\S]*?active=\{listingBackground === null\}/
+    /const listingLocation = useStableListingLocation\(\s*listingBackground \?\? activeListingLocation\s*\);[\s\S]*?<RetainedListingSurface[\s\S]*?active=\{listingBackground === null\}/
   );
+  // Rebuilt history-state locations must not rerender the retained listing.
+  assert.match(app, /const RetainedListingSurface = memo\(function RetainedListingSurface\(/);
   assert.match(app, /\{listingBackground && <VideoDetailForeground \/>\}/);
   assert.match(
     app,

@@ -109,20 +109,25 @@ export function createShortsSurfaceGestures(host: SurfaceGestureHost) {
     holdTimer = null;
   }
 
-  function endPress() {
+  /**
+   * 结束本次按压。横滑 seek 默认提交当前落点；系统打断（pointercancel、
+   * 窗口失焦、卸载）则撤回到起点——那不是用户选定的位置，和翻页器取消时
+   * 回到原屏一致。
+   */
+  function endPress(seek: "commit" | "revert" = "commit") {
     clearHoldTimer();
     if (press?.mode === "fast") {
       restoreShortsPlaybackRate(video);
       host.onFastChange(false);
     } else if (press?.mode === "seek") {
-      host.onSeekEnd(press.targetTime);
+      host.onSeekEnd(seek === "commit" ? press.targetTime : press.startTime);
     }
     press = null;
   }
 
-  function cancel() {
+  function cancel(seek: "commit" | "revert" = "commit") {
     cancelTap();
-    endPress();
+    endPress(seek);
     endPinch();
   }
 
@@ -152,7 +157,7 @@ export function createShortsSurfaceGestures(host: SurfaceGestureHost) {
   }
 
   function reset() {
-    cancel();
+    cancel("revert");
     touches.clear();
     multiTouch = false;
   }
@@ -313,11 +318,11 @@ export function createShortsSurfaceGestures(host: SurfaceGestureHost) {
   function handleCancel(event: PointerEvent) {
     touches.delete(event.pointerId);
     if (multiTouch) {
-      cancel();
+      cancel("revert");
       if (touches.size === 0) multiTouch = false;
       return;
     }
-    if (press?.id === event.pointerId) cancel();
+    if (press?.id === event.pointerId) cancel("revert");
   }
 
   function handleClick(event: MouseEvent) {

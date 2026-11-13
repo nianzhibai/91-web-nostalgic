@@ -6,7 +6,6 @@ import { AppShell } from "@/components/AppShell";
 import { HomeFeedTabs } from "@/components/HomeFeedTabs";
 import { InfiniteFeedStatus } from "@/components/InfiniteFeedStatus";
 import { ListingLoadError } from "@/components/ListingLoadError";
-import { PromoStrip } from "@/components/PromoStrip";
 import { SearchPanel } from "@/components/SearchPanel";
 import { SortToolbar } from "@/components/SortToolbar";
 import { TagCloud } from "@/components/TagCloud";
@@ -155,7 +154,6 @@ export default function HomePage() {
   return (
     <AppShell mobileAutoHideNav>
       <div className="container page-section home-discovery-section">
-        <PromoStrip />
         <SearchPanel
           navigationPath="/"
           variant="uiverse"

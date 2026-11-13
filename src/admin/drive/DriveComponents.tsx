@@ -8,58 +8,6 @@ import {
   generationTitle,
 } from "./constants";
 
-export function GenerationCounts({
-  ready,
-  pending,
-  failed,
-}: {
-  ready?: number;
-  pending?: number;
-  failed?: number;
-}) {
-  return (
-    <div className="admin-generation-counts">
-      <span className="admin-drive-teaser__metric is-ready">
-        就绪 {ready ?? 0}
-      </span>
-      <span className="admin-drive-teaser__metric is-pending">
-        待生成 {pending ?? 0}
-      </span>
-      <span className="admin-drive-teaser__metric is-failed">
-        失败 {failed ?? 0}
-      </span>
-    </div>
-  );
-}
-
-export function GenerationStatusLine({
-  label,
-  status,
-}: {
-  label: string;
-  status?: api.DriveGenerationStatus;
-}) {
-  const state = status?.state || "idle";
-  const queueLength = status?.queueLength ?? 0;
-  const detail = generationDetail(status);
-  const title = generationTitle(status, detail);
-  const countText = queueLength > 0 ? `${label === "封面" ? "待处理" : "队列"} ${queueLength}` : "";
-
-  return (
-    <div className="admin-generation-row" title={title}>
-      <span className="admin-generation-kind">{label}</span>
-      <span className={`admin-status admin-generation-state is-${generationStateClass(state)}`}>
-        {generationStateLabel(state)}
-      </span>
-      {(detail || queueLength > 0) && (
-        <span className="admin-generation-detail">
-          {[detail, countText].filter(Boolean).join(" / ")}
-        </span>
-      )}
-    </div>
-  );
-}
-
 export function StatusTag({
   status,
   error,

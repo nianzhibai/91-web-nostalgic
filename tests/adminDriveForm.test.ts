@@ -489,10 +489,8 @@ test("drive form required fields use save-time prompts instead of label stars", 
 });
 
 test("crawler management is a separate admin section", () => {
-  assert.match(adminLayoutSource, /to="\/admin\/crawlers"/);
-  assert.match(adminLayoutSource, /admin-nav__title">爬虫管理/);
+  assert.match(adminLayoutSource, /\{ to: "\/admin\/crawlers", Icon: SpiderIcon \}/);
   assert.match(adminLayoutSource, /import \{ SpiderIcon \} from "\.\/icons\/SpiderIcon";/);
-  assert.match(adminLayoutSource, /<SpiderIcon size=\{15\} \/>/);
   assert.doesNotMatch(adminLayoutSource, /<Bot\b/);
   assert.match(spiderIconSource, /Font Awesome Pro 7\.3\.1 by @fontawesome/);
   assert.match(spiderIconSource, /Commercial License, Copyright 2026 Fonticons, Inc\./);
@@ -504,7 +502,7 @@ test("crawler management is a separate admin section", () => {
   assert.doesNotMatch(spiderIconSource, /stroke(?:Width|Linecap|Linejoin)?=/);
   assert.match(
     appSource,
-    /path="crawlers"[\s\S]*<PageSuspense fallback=\{<CrawlersPageLoading \/>\}>[\s\S]*<CrawlersPage \/>[\s\S]*<\/PageSuspense>/
+    /path="crawlers"[\s\S]*<PageSuspense fallback=\{<PageSuspense><CrawlersPageLoading \/><\/PageSuspense>\}>[\s\S]*<CrawlersPage \/>[\s\S]*<\/PageSuspense>/
   );
   assert.doesNotMatch(crawlerPageSource, /SpiderWebAnimation/);
   assert.doesNotMatch(crawlerPageLoadingSource, /SpiderWebAnimation/);
@@ -718,7 +716,7 @@ test("crawler management is a separate admin section", () => {
 test("system sidebar contains navigation only while global actions live in the layout", () => {
   assert.match(
     adminLayoutSource,
-    /admin-nav__group-label">系统[\s\S]*?to="\/admin\/backup"[\s\S]*?to="\/admin\/logs"[\s\S]*?to="\/admin\/settings"/
+    /label: "系统"[\s\S]*?to: "\/admin\/backup"[\s\S]*?to: "\/admin\/logs"[\s\S]*?to: "\/admin\/settings"/
   );
   assert.doesNotMatch(adminLayoutSource, /to="\/admin\/theme"/);
   assert.doesNotMatch(adminLayoutSource, /admin-nav__action|admin-sidebar__mobile-panel/);
@@ -745,24 +743,20 @@ test("admin layout and its stylesheet load as one lazy route chunk", () => {
     assert.doesNotMatch(adminCss, baseRule);
     assert.doesNotMatch(loginCss, baseRule);
   }
-  assert.match(
-    appSource,
-    /import \{ DrivesPageLoading \} from "@\/admin\/DrivesPageLoading";/
-  );
-  assert.match(
-    appSource,
-    /import \{ CrawlersPageLoading \} from "@\/admin\/CrawlersPageLoading";/
-  );
+  // Admin skeletons load lazily with the layout instead of joining the entry chunk.
+  assert.doesNotMatch(appSource, /^import .*PageLoading/m);
+  assert.match(appSource, /const loadDrivesPageLoading = \(\) => import\("@\/admin\/DrivesPageLoading"\);/);
+  assert.match(appSource, /const loadCrawlersPageLoading = \(\) => import\("@\/admin\/CrawlersPageLoading"\);/);
   assert.doesNotMatch(appSource, /<Suspense fallback=\{null\}>\s*<Routes>/);
   assert.match(appSource, /function PageSuspense\(\{[\s\S]*fallback = null,[\s\S]*fallback\?: ReactNode/);
   assert.match(appSource, /path="\/admin"[\s\S]*?<PageSuspense>\s*<AdminLayout \/>\s*<\/PageSuspense>/);
   assert.match(
     appSource,
-    /path="drives"[\s\S]*<PageSuspense fallback=\{<DrivesPageLoading \/>\}>[\s\S]*<DrivesPage \/>[\s\S]*<\/PageSuspense>/
+    /path="drives"[\s\S]*<PageSuspense fallback=\{<PageSuspense><DrivesPageLoading \/><\/PageSuspense>\}>[\s\S]*<DrivesPage \/>[\s\S]*<\/PageSuspense>/
   );
   assert.match(
     appSource,
-    /path="crawlers"[\s\S]*<PageSuspense fallback=\{<CrawlersPageLoading \/>\}>[\s\S]*<CrawlersPage \/>[\s\S]*<\/PageSuspense>/
+    /path="crawlers"[\s\S]*<PageSuspense fallback=\{<PageSuspense><CrawlersPageLoading \/><\/PageSuspense>\}>[\s\S]*<CrawlersPage \/>[\s\S]*<\/PageSuspense>/
   );
   assert.match(
     drivesPageLoadingSource,
@@ -850,7 +844,7 @@ test("drive list actions use ordinary text buttons in the requested positions", 
   );
   assert.match(
     drivesPageSource,
-    /title=\{form\.id && list\.find\(\(x\) => x\.id === form\.id\) \? "编辑凭证" : "添加网盘"\}/
+    /title=\{editingExistingDrive \? "编辑凭证" : "添加网盘"\}/
   );
   assert.match(
     adminCss,
@@ -908,9 +902,9 @@ test("drive loading keeps the storage summary shell and labels without value ske
 
 test("empty drive list renders the shared empty visual and prompt", () => {
   const listViewStart = drivesPageSource.indexOf("// --- List view ---");
-  const modalStart = drivesPageSource.indexOf("<Modal", listViewStart);
+  const modalStart = drivesPageSource.indexOf("{driveDialogs}", listViewStart);
   assert.ok(listViewStart > -1, "list view branch should be present");
-  assert.ok(modalStart > listViewStart, "list view modal should follow list content");
+  assert.ok(modalStart > listViewStart, "list view dialogs should follow list content");
 
   const listViewSource = drivesPageSource.slice(listViewStart, modalStart);
   assert.match(listViewSource, /<AdminEmptyVisual[\s\S]*?variant="empty"[\s\S]*?text="请先添加网盘"[\s\S]*?className="admin-drive-empty-state"/);
@@ -954,7 +948,7 @@ test("drive management status pills omit the leading status dot", () => {
 });
 
 test("drive dialogs share a bounded layout with a scrollable form body", () => {
-  assert.match(drivesPageSource, /title="编辑凭证"[\s\S]*?className="admin-modal--drive-form"/);
+  assert.match(drivesPageSource, /title=\{editingExistingDrive \? "编辑凭证" : "添加网盘"\}[\s\S]*?className="admin-modal--drive-form"/);
   assert.match(adminCss, /\.admin-modal--drive-form\s*\{[^}]*max-height\s*:[^;]+;[^}]*overflow\s*:\s*hidden/s);
   assert.match(adminCss, /\.admin-modal--drive-form \.admin-modal__body\s*\{[^}]*min-height\s*:\s*0;[^}]*overflow-y\s*:\s*auto/s);
 });
@@ -1047,9 +1041,10 @@ test("drive deletion uses ordinary styling and credential edits emphasize saving
   assert.match(deleteDriveModalSource, /正在运行的任务将先自动停止，完全退出后再删除/);
   assert.match(deleteDriveModalSource, /className="admin-btn"\s+onClick=\{onConfirm\}/);
   assert.doesNotMatch(deleteDriveModalSource, /Trash2|确认删除|is-danger/);
+  assert.match(detailViewSource, /\{driveDialogs\}/);
   assert.match(
-    detailViewSource,
-    /title="编辑凭证"[\s\S]*?className="admin-btn is-primary"\s+onClick=\{handleSave\}[\s\S]*?\{saving \? "保存中\.\.\." : "保存更改"\}/
+    drivesPageSource,
+    /className="admin-btn is-primary"\s+onClick=\{handleSave\}[\s\S]*?\{saving \? "保存中\.\.\." : editingExistingDrive \? "保存更改" : "保存"\}/
   );
 });
 
@@ -1158,7 +1153,7 @@ test("drive discard confirmation matches delete confirmation modal styling", () 
     (match) => match[0]
   );
 
-  assert.equal(discardModals.length, 2);
+  assert.equal(discardModals.length, 1);
   for (const modal of discardModals) {
     assert.match(modal, /danger/);
     assert.match(modal, /centerMessage/);
@@ -1185,12 +1180,12 @@ test("new drive type selection alone is not treated as unsaved config", () => {
     drivesPageSource,
     /const formDirty = form\.id\s*\?\s*!sameForm\(form, initialForm\)\s*:\s*hasCreateFormChanges\(form\);/
   );
-  assert.match(drivesPageSource, /function handleCreateFormChange\(nextForm: FormState\)/);
+  assert.match(drivesPageSource, /function handleFormChange\(nextForm: FormState\)/);
   assert.match(
     drivesPageSource,
     /if \(!nextForm\.id && !hasCreateFormChanges\(nextForm\)\) \{\s*setInitialForm\(nextForm\);/
   );
-  assert.match(drivesPageSource, /onChange=\{handleCreateFormChange\}/);
+  assert.match(drivesPageSource, /onChange=\{handleFormChange\}/);
 
   const match = /function hasCreateFormChanges\(form: FormState\): boolean \{([\s\S]*?)\n\}/.exec(
     drivesPageSource

@@ -17,10 +17,10 @@ const rendererSource = readFileSync(
   new URL("../src/lib/tripleScreen.ts", import.meta.url),
   "utf8"
 );
-const detailCss = readFileSync(
-  new URL("../src/styles/video-detail.css", import.meta.url),
-  "utf8"
-);
+const detailCss = [
+  readFileSync(new URL("../src/styles/video-detail.css", import.meta.url), "utf8"),
+  readFileSync(new URL("../src/styles/video-player.css", import.meta.url), "utf8"),
+].join("\n");
 
 function assertClose(actual: number, expected: number) {
   assert.ok(Math.abs(actual - expected) < 0.001, `${actual} != ${expected}`);

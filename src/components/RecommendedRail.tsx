@@ -404,6 +404,7 @@ function RecommendedItemContent(
   const {
     previewEnabled, previewState, shouldRenderPreview, showPreviewLoader,
     videoRef, startPreview, stopPreview, handlePreviewPlay, finishPreviewLoader,
+    touchPreviewHandlers,
   } = useCardPreview({ id: video.id, src: video.previewSrc, inView, active });
   const setRootRef = useCallback(
     (node: HTMLLIElement | null) => {
@@ -464,7 +465,10 @@ function RecommendedItemContent(
           className="vd-rail__thumb"
           onPointerEnter={handlePointerEnter}
           onPointerLeave={handlePointerLeave}
-          onTouchStart={startPreview}
+          onTouchStart={touchPreviewHandlers.onTouchStart}
+          onTouchMove={touchPreviewHandlers.onTouchMove}
+          onTouchEnd={touchPreviewHandlers.onTouchEnd}
+          onTouchCancel={touchPreviewHandlers.onTouchCancel}
         >
           <VideoThumbnail
             src={video.thumbnail}

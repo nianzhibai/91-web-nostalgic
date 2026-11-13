@@ -58,6 +58,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refresh();
   }, [refresh]);
 
+  useEffect(() => api.onSessionExpired(invalidateSession), [invalidateSession]);
+
   const login = useCallback(async (u: string, p: string) => {
     const result = await api.login(u, p);
     applyTelegramEnabled(result.role === "admin" && result.telegramEnabled === true);
@@ -66,12 +68,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return result.role;
   }, []);
 
+  // Leaving the admin always succeeds locally. A failed request only means the
+  // server cookie may outlive this tab; it expires on its own.
   const logout = useCallback(async () => {
-    try {
-      await api.logout();
-    } finally {
-      invalidateSession();
-    }
+    await api.logout().catch(() => undefined);
+    invalidateSession();
   }, [invalidateSession]);
 
   const isAdmin = role === "admin";

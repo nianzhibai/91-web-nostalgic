@@ -861,9 +861,10 @@ test("blacklist source files can be deleted by one serialized background task", 
   assert.match(disabledSelection, /opacity\s*:\s*0\.4/);
   assert.equal(
     Array.from(adminCss.matchAll(/\.admin-table:not\(\.admin-table--static-rows\) tbody tr:hover td/g)).length,
-    2
+    1
   );
-  assert.doesNotMatch(adminCss, /\.admin-table tbody tr:hover td/);
+  assert.doesNotMatch(adminCss, /\.admin-table tbody tr:hover >? ?td/);
+  assert.doesNotMatch(adminCss, /tr:hover td\s*\{[^}]*!important/);
   assert.match(action, /display\s*:\s*flex/);
   assert.match(button, /flex\s*:\s*none/);
   assert.match(deleteAllButtonSource, /admin-videos-filter__search-action/);
@@ -1023,8 +1024,7 @@ test("admin loading spinner rotates around icon center", () => {
   const spinner = ruleBody(adminCss, ".admin-spin");
   const pageLoading = ruleBody(adminCss, ".admin-loading");
 
-  assert.match(spinner, /animation\s*:\s*admin-update-spin\s+0\.9s\s+linear\s+infinite/);
-  assert.match(adminCss, /@keyframes admin-update-spin\s*\{\s*to\s*\{\s*transform:\s*rotate\(360deg\)/);
+  assert.match(spinner, /animation\s*:\s*spin\s+0\.9s\s+linear\s+infinite/);
   assert.match(spinner, /transform-box\s*:\s*fill-box/);
   assert.match(spinner, /transform-origin\s*:\s*center/);
   assert.match(spinner, /will-change\s*:\s*transform/);
@@ -1039,7 +1039,6 @@ test("admin loading spinner rotates around icon center", () => {
     Array.from(drivesPageSource.matchAll(/<AdminLoading \/>/g)).length,
     0
   );
-  assert.match(adminCss, /@media \(prefers-reduced-motion: reduce\)\s*\{\s*\.admin-spin\s*\{\s*animation-duration\s*:\s*0\.9s\s*!important/s);
 });
 
 test("drive list loading uses a local card-grid skeleton", () => {
@@ -1058,7 +1057,7 @@ test("drive list loading uses a local card-grid skeleton", () => {
   assert.match(skeleton, /height\s*:\s*230px/);
   assert.match(
     skeletonSurface,
-    /animation\s*:\s*admin-card-skeleton-shimmer 1\.5s ease-in-out infinite/
+    /animation\s*:\s*shimmer 1\.5s ease-in-out infinite/
   );
   assert.match(
     adminCss,
@@ -1465,7 +1464,6 @@ test("mobile admin navigation uses a CPA-style sliding drawer", () => {
   assert.match(mobileMain, /overflow\s*:\s*visible/);
   assert.match(mobileMain, /padding\s*:\s*var\(--admin-mobile-header-offset\)\s+var\(--space-3\)\s+var\(--space-4\)/);
   assert.match(adminCss, /html\.admin-mobile-nav-open,[\s\S]*?overscroll-behavior:\s*none/);
-  assert.match(ruleBody(css, ".admin-page__header"), /margin-bottom\s*:\s*var\(--space-3\)/);
 });
 
 test("crawler cards do not expose a separate preview switch", () => {

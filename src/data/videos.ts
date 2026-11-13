@@ -7,9 +7,6 @@ export type { TagItem } from "@91/client/types";
 export type { CreateRemoteUploadInput, RemoteUploadJob, RemoteUploadState, UploadVideoInput } from "@91/client/admin";
 
 export const {
-  listHome: fetchHomeVideos,
-  listLatest: fetchLatestHomeVideos,
-  list: fetchListing,
   getFeed: fetchVideoFeed,
   getCollection: fetchVideoCollection,
   getCollectionSummary: fetchVideoCollectionSummary,

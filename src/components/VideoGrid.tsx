@@ -6,7 +6,6 @@ import { VideoCard } from "./VideoCard";
 type Props = {
   videos: VideoItem[];
   loading?: boolean;
-  refreshMode?: "blocking" | "background";
   emptyText?: string;
   eagerCount?: number;
   highPriorityCount?: number;
@@ -16,7 +15,6 @@ type Props = {
 export function VideoGrid({
   videos,
   loading,
-  refreshMode,
   emptyText = "暂时没有视频",
   eagerCount = 0,
   highPriorityCount = 0,
@@ -25,9 +23,6 @@ export function VideoGrid({
   useEffect(() => {
     scheduleVideoDetailPagePreload();
   }, []);
-
-  const blockingRefresh = refreshMode === "blocking";
-  const backgroundRefresh = refreshMode === "background";
 
   if (loading) {
     return (
@@ -56,10 +51,7 @@ export function VideoGrid({
   }
 
   return (
-    <div
-      className={`video-grid-region ${blockingRefresh ? "is-busy" : ""}`}
-      aria-busy={blockingRefresh || backgroundRefresh || undefined}
-    >
+    <div className="video-grid-region">
       <div className="video-grid">
         {(videos ?? []).map((v, index) => (
           <VideoCard
@@ -70,15 +62,6 @@ export function VideoGrid({
           />
         ))}
       </div>
-      {blockingRefresh && (
-        <div className="video-grid-refresh-overlay" aria-hidden="true" />
-      )}
-      {backgroundRefresh && (
-        <div className="video-grid-background-status" role="status">
-          <span className="video-grid-refresh-overlay__spinner" aria-hidden="true" />
-          <span>正在同步</span>
-        </div>
-      )}
     </div>
   );
 }

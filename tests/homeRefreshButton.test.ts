@@ -73,9 +73,10 @@ test("home page refresh button shares back-to-top slot until back-to-top is visi
   const shiftedRefresh = ruleBody(layoutCss, ".app-shell.is-back-to-top-visible .home-refresh");
   const backToTop = ruleBody(layoutCss, ".back-to-top");
   assert.match(refresh, /position\s*:\s*fixed/);
-  assert.match(refresh, /bottom\s*:\s*24px/);
-  assert.match(backToTop, /bottom\s*:\s*24px/);
-  assert.match(shiftedRefresh, /bottom\s*:\s*80px/);
+  assert.match(refresh, /bottom\s*:\s*calc\(24px \+ env\(safe-area-inset-bottom\)\)/);
+  assert.match(backToTop, /bottom\s*:\s*calc\(24px \+ env\(safe-area-inset-bottom\)\)/);
+  assert.match(shiftedRefresh, /--home-refresh-lift\s*:\s*56px/);
+  assert.doesNotMatch(refresh, /transition\s*:[^;]*\bbottom\b/);
   assert.match(refresh, /z-index\s*:\s*var\(--z-overlay\)/);
   assert.doesNotMatch(layoutCss, /\.home-refresh\.is-visible/);
 

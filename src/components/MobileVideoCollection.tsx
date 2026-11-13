@@ -11,6 +11,7 @@ import type { PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
 import { Link, useLocation, useNavigate } from "react-router";
 import { ArrowUpDown, ChevronRight, Eye, X } from "lucide-react";
+import { MOBILE_NAV_QUERY } from "@/lib/responsive";
 import type {
   VideoCollectionItem,
   VideoCollectionSummary,
@@ -33,6 +34,7 @@ import {
 import { PreviewVideo } from "./PreviewVideo";
 import { PreviewLoader } from "./PreviewLoader";
 import { VideoThumbnail } from "./VideoThumbnail";
+import "@/styles/video-collection.css";
 
 type Props = {
   videoId: string;
@@ -180,7 +182,7 @@ export function MobileVideoCollection({ videoId, collection }: Props) {
   // CSS hides the feature above the mobile breakpoint. Also close an already
   // open sheet after rotation/resizing so its document scroll lock is released.
   useEffect(() => {
-    const media = window.matchMedia("(max-width: 768px)");
+    const media = window.matchMedia(MOBILE_NAV_QUERY);
     const handleChange = () => {
       if (!media.matches && open) closeSheet(false, false);
     };
@@ -644,6 +646,7 @@ const CollectionItem = forwardRef<HTMLLIElement, CollectionItemProps>(
     const {
       previewEnabled, previewState, shouldRenderPreview, showPreviewLoader,
       videoRef, startPreview, stopPreview, handlePreviewPlay, finishPreviewLoader,
+      touchPreviewHandlers,
     } = useCardPreview({ id: video.id, src: video.previewSrc, inView });
     const setRootRef = useCallback(
       (node: HTMLLIElement | null) => {
@@ -693,7 +696,7 @@ const CollectionItem = forwardRef<HTMLLIElement, CollectionItemProps>(
             className="vd-collection-item__thumb"
             onPointerEnter={handlePointerEnter}
             onPointerLeave={handlePointerLeave}
-            onTouchStart={startPreview}
+            {...touchPreviewHandlers}
           >
             <VideoThumbnail src={video.thumbnail} />
             {previewEnabled && shouldRenderPreview && video.previewSrc && (

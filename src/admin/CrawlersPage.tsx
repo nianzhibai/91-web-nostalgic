@@ -1,5 +1,4 @@
 import {
-  useEffect,
   useRef,
   useState,
   type DragEvent,
@@ -14,7 +13,7 @@ import {
   Upload,
 } from "lucide-react";
 import * as api from "./api";
-import { editorFormFromCrawler, editorFormWithImportedScript, type CrawlerEditorForm } from "./crawlerEditor";
+import { editorFormChanged, editorFormFromCrawler, editorFormWithImportedScript, type CrawlerEditorForm } from "./crawlerEditor";
 import { Modal } from "./Modal";
 import { ConfirmModal } from "./ConfirmModal";
 import { useToast } from "@/components/ToastContext";
@@ -38,23 +37,22 @@ import {
 import { useAdminFloatingActionSpace } from "./useAdminFloatingActionSpace";
 import { useAdminRouteActive } from "./AdminRouteCache";
 import { useAdminResource } from "./useAdminResource";
-import { useAuth } from "./AuthContext";
+import { ResourceErrorBanners } from "./ResourceErrorBanners";
 
 const POLL_INTERVAL_MS = 5000;
 
 export function CrawlersPage() {
   const floatingActionPageRef = useAdminFloatingActionSpace<HTMLElement>();
   const routeActive = useAdminRouteActive();
-  const { invalidateSession } = useAuth();
   const maintenance = useAdminResource<api.MaintenanceJobStatus | null>(api.getScanAllJobStatus,
-    { queryKey: "maintenance", active: routeActive, initialData: null, onUnauthorized: invalidateSession,
+    { queryKey: "maintenance", active: routeActive, initialData: null,
       intervalMs: (status) => status?.running || status?.queued ? POLL_INTERVAL_MS : 15_000 });
   const maintenanceBusy = Boolean(maintenance.data?.running || maintenance.data?.queued);
   const crawlers = useAdminResource(api.listCrawlers, {
-    queryKey: "crawlers", active: routeActive, initialData: [], onUnauthorized: invalidateSession,
+    queryKey: "crawlers", active: routeActive, initialData: [],
     intervalMs: (items) => maintenanceBusy || items.some(crawlerBusy) ? POLL_INTERVAL_MS : 15_000,
   });
-  const drives = useAdminResource(api.listDrives, { queryKey: "crawler-upload-targets", active: routeActive, intervalMs: null, initialData: [], onUnauthorized: invalidateSession });
+  const drives = useAdminResource(api.listDrives, { queryKey: "crawler-upload-targets", active: routeActive, intervalMs: null, initialData: [] });
   const { data: list, setData: setList, loading, invalidate: refresh } = crawlers;
   const uploadTargets = drives.data.filter((drive) => drive.canUpload);
   const [detailTargetId, setDetailTargetId] = useState("");
@@ -194,16 +192,11 @@ export function CrawlersPage() {
       ref={floatingActionPageRef}
       className="admin-page admin-page--with-floating-actions admin-crawlers-page"
     >
-      {[
-        { title: "爬虫列表", resource: crawlers },
-        { title: "上传目标", resource: drives },
-        { title: "维护状态", resource: maintenance },
-      ].map(({ title, resource }) => resource.error && (
-        <div className="admin-detail-error" role="alert" key={title}>
-          {title}更新失败：{resource.error}
-          <button type="button" className="admin-btn" onClick={() => void resource.refresh()}>重试</button>
-        </div>
-      ))}
+      <ResourceErrorBanners failures={[
+        { label: "爬虫列表更新失败", error: crawlers.error, retry: crawlers.refresh },
+        { label: "上传目标更新失败", error: drives.error, retry: drives.refresh },
+        { label: "维护状态更新失败", error: maintenance.error, retry: maintenance.refresh },
+      ]} />
       <div className="admin-crawler-console">
         <div
           className="admin-card admin-crawler-list"
@@ -484,7 +477,9 @@ function CrawlerEditorModal({
   onSaved: () => void;
 }) {
   const isEdit = crawler !== null;
-  const [form, setForm] = useState<CrawlerEditorForm>(() => editorFormFromCrawler(crawler));
+  const [initialForm] = useState<CrawlerEditorForm>(() => editorFormFromCrawler(crawler));
+  const [form, setForm] = useState<CrawlerEditorForm>(initialForm);
+  const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
   const [scriptURL, setScriptURL] = useState("");
   const [importMode, setImportMode] = useState<"file" | "url">("file");
   const [importing, setImporting] = useState(false);
@@ -500,18 +495,14 @@ function CrawlerEditorModal({
   const feedError = !form.scriptPath || selectedFeed ? ""
     : form.selectedFeedId ? "脚本已不支持原选栏目，请重新选择。" : "请选择抓取栏目。";
 
-  useEffect(() => {
-    if (!open) return;
-    setForm(editorFormFromCrawler(crawler));
-    setScriptURL("");
-    setImportMode("file");
-    setTestResult(null);
-    setDragOver(false);
-    setReplacingScript(false);
-  }, [open, crawler]);
-
   // 导入成功后展示脚本信息，替换时再展开导入区。
   const showImportArea = !form.scriptPath || replacingScript;
+
+  function requestClose() {
+    if (busy) return;
+    if (editorFormChanged(form, initialForm)) setDiscardConfirmOpen(true);
+    else onClose();
+  }
 
   function set<K extends keyof CrawlerEditorForm>(key: K, value: CrawlerEditorForm[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -662,11 +653,11 @@ function CrawlerEditorModal({
     <Modal
       open={open}
       title={isEdit ? "编辑爬虫" : "添加爬虫"}
-      onClose={() => { if (!busy) onClose(); }}
+      onClose={requestClose}
       className="admin-modal--crawler"
       footer={
         <>
-          <button type="button" className="admin-btn" onClick={onClose} disabled={busy}>
+          <button type="button" className="admin-btn" onClick={requestClose} disabled={busy}>
             取消
           </button>
           <button type="button" className="admin-btn is-primary" onClick={save} disabled={busy || !form.scriptPath || !!feedError}>
@@ -904,6 +895,17 @@ function CrawlerEditorModal({
           {testResult && <CrawlerTestResult result={testResult} />}
         </section>
       </div>
+      <ConfirmModal
+        open={discardConfirmOpen}
+        title="放弃未保存更改"
+        message="当前爬虫配置有未保存的更改，确定要放弃吗？"
+        confirmText="放弃更改"
+        danger
+        centerMessage
+        modalClassName="admin-modal--delete-confirm"
+        onCancel={() => setDiscardConfirmOpen(false)}
+        onConfirm={onClose}
+      />
     </Modal>
   );
 }

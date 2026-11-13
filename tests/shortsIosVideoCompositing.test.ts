@@ -63,9 +63,11 @@ test("app has standalone display metadata for iPhone home-screen launch", () => 
 test("shortcuts and installed apps share a standard icon without adaptive cropping", () => {
   const favicon = /<link rel="icon"[^>]*href="([^"]+)"/.exec(indexHtml)?.[1];
   assert.ok(favicon, "The app shell should declare a favicon");
+  // Manifest icons are relative so they resolve against the versioned manifest URL.
   const sharedIcon = manifest.icons.find(
-    (icon) => icon.src === favicon && icon.sizes === "512x512"
+    (icon) => `/${icon.src}` === favicon && icon.sizes === "512x512"
   );
+  assert.ok(manifest.icons.every((icon) => !icon.src.startsWith("/")));
   assert.ok(sharedIcon, "The favicon and launcher icon should use the same asset");
   assert.ok(
     manifest.icons.every((icon) => icon.purpose === "any"),

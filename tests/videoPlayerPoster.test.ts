@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-const detailCss = readFileSync(
-  new URL("../src/styles/video-detail.css", import.meta.url),
-  "utf8"
-);
+const detailCss = [
+  readFileSync(new URL("../src/styles/video-detail.css", import.meta.url), "utf8"),
+  readFileSync(new URL("../src/styles/video-player.css", import.meta.url), "utf8"),
+].join("\n");
 const playerSource = readFileSync(
   new URL("../src/components/VideoPlayer.tsx", import.meta.url),
   "utf8"
@@ -411,7 +411,7 @@ test("detail player uses custom mobile gestures instead of ArtPlayer native gest
   assert.doesNotMatch(playerSource, /function isPlayerLandscapeExpanded/);
   assert.doesNotMatch(playerSource, /getEffectivePlayerOrientation\(art\) === "landscape"/);
   assert.match(playerSource, /if \(!isPlayerExpanded\(art\)\) \{\s*resetGesture\(\);/);
-  assert.match(playerSource, /if \(!isPlayerExpanded\(art\)\) return;\s*onGestureHud\(seekGestureLabel/);
+  assert.match(playerSource, /if \(!isPlayerExpanded\(art\)\) return;\s*showPlayerGestureHud\(art, "seek", seekGestureLabel/);
   assert.match(playerSource, /const FAST_RATE_CLASS = "art-fast-rate-active"/);
   assert.match(playerSource, /const FAST_RATE_HINT_CLASS = "video-player__art-rate-hint"/);
   assert.match(playerSource, /const PLAYER_GESTURE_HUD_CLASS = "video-player__art-gesture-hud"/);
@@ -481,7 +481,7 @@ test("detail player hides orientation control on iPhone without disabling mobile
   );
   assert.match(playerSource, /function shouldEnableMobileOrientationControl\(\)\s*\{\s*return isMobilePlaybackDevice\(\) && !isApplePhoneDevice\(\);/);
   assert.match(playerSource, /function isApplePhoneDevice\(\)\s*\{\s*return \/iPhone\|iPod\/i\.test\(navigator\.userAgent\);/);
-  assert.match(playerSource, /function shouldEnableMobileGestures\(\)\s*\{\s*return isMobilePlaybackDevice\(\);/);
+  assert.match(playerSource, /function bindMobilePlayerGestures[\s\S]*?if \(!isMobilePlaybackDevice\(\)\) return noop;/);
 });
 
 test("detail player keeps only native fullscreen on Apple devices", () => {
@@ -540,11 +540,7 @@ test("iOS PikPak MP4 detail uses a typed source element without changing other p
 test("detail player fullscreen long-press rate hint lives inside ArtPlayer", () => {
   assert.match(
     detailCss,
-    /\.video-player__rate-hint,\s*\.video-player__art-rate-hint\s*\{[\s\S]*position:\s*absolute[\s\S]*top:\s*12px/s
-  );
-  assert.match(
-    detailCss,
-    /\.video-player__art-rate-hint\s*\{[^}]*z-index:\s*130/s
+    /\.video-player__art-rate-hint\s*\{[^}]*position:\s*absolute[^}]*top:\s*12px[^}]*z-index:\s*130/s
   );
   assert.match(
     detailCss,

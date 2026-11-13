@@ -77,7 +77,7 @@
   .shorts-desktop-brand__name {
     color: #fff;
     font-family: inherit;
-    font-weight: 600;
+    font-weight: var(--weight-semibold);
     letter-spacing: normal;
     white-space: nowrap;
     font-size: 20px;
@@ -101,7 +101,7 @@
     border-radius: 12px;
     color: rgb(255 255 255 / 75%);
     font-size: 16px;
-    font-weight: 500;
+    font-weight: var(--weight-medium);
     font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
     text-shadow: none;
     width: 100%;
@@ -125,7 +125,7 @@
   .shorts-desktop-nav .shorts-header__tab[aria-selected="true"] {
     background: rgb(242 242 244 / 10%);
     color: #fff;
-    font-weight: 500;
+    font-weight: var(--weight-medium);
   }
 
   .shorts-desktop-nav .shorts-header__tab[aria-selected="true"] svg {
@@ -185,7 +185,6 @@
   .shorts-desktop-nav .shorts-header__tab[aria-selected="true"]::after {
     display: none;
   }
-
 
   .shorts-slide {
     background: var(--shorts-desktop-background);
@@ -250,7 +249,7 @@
     font-family: inherit;
     font-size: 15px;
     line-height: 1.65;
-    font-weight: 400;
+    font-weight: var(--weight-regular);
     letter-spacing: normal;
     text-shadow: 0 1px 4px rgb(0 0 0 / 40%);
   }
@@ -268,7 +267,7 @@
     color: rgb(255 255 255 / 90%);
     font-family: "Noto Serif CJK SC", "Source Han Serif SC", "Songti SC", "STSong", "SimSun", serif;
     font-size: 16px;
-    font-weight: 400;
+    font-weight: var(--weight-regular);
     line-height: 24px;
     letter-spacing: 1.5px;
     text-shadow: none;
@@ -319,7 +318,7 @@
     color: #fff;
     font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
     font-size: 12px;
-    font-weight: 400;
+    font-weight: var(--weight-regular);
     line-height: 20px;
     text-shadow: none;
     white-space: nowrap;
@@ -357,7 +356,7 @@
     color: #252632;
     font: inherit;
     font-size: 13px;
-    font-weight: 500;
+    font-weight: var(--weight-medium);
     line-height: 21px;
   }
 
@@ -403,7 +402,7 @@
     display: block;
     font-size: 12px;
     line-height: 1.2;
-    font-weight: 500;
+    font-weight: var(--weight-medium);
     text-shadow: 0 1px 3px rgb(0 0 0 / 50%);
     white-space: nowrap;
   }
@@ -480,7 +479,7 @@
   .shorts-slide__progress-track::after {
     width: 10px;
     height: 10px;
-    right: calc(100% - var(--progress-pct, 0%) - 5px);
+    right: calc((1 - var(--progress, 0)) * 100% - 5px);
     box-shadow: none;
   }
 
@@ -529,7 +528,7 @@
     color: #e4e4e6;
     font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
     font-size: 14px;
-    font-weight: 500;
+    font-weight: var(--weight-medium);
     line-height: 22px;
     cursor: default;
   }
@@ -566,7 +565,7 @@
     min-width: 98px;
     color: #fff;
     font-size: 14px;
-    font-weight: 400;
+    font-weight: var(--weight-regular);
     line-height: 18px;
     font-variant-numeric: tabular-nums;
   }
@@ -592,7 +591,7 @@
     background: #252632;
     color: #fff;
     font-size: 12px;
-    font-weight: 400;
+    font-weight: var(--weight-regular);
     line-height: 18px;
     white-space: nowrap;
   }
@@ -623,7 +622,7 @@
     color: #252632;
     font: inherit;
     font-size: 13px;
-    font-weight: 500;
+    font-weight: var(--weight-medium);
   }
 
   .shorts-slide__control-settings {
@@ -700,7 +699,7 @@
     text-align: center;
     color: rgb(255 255 255 / 70%);
     font-size: 12px;
-    font-weight: 400;
+    font-weight: var(--weight-regular);
     line-height: 20px;
     font-variant-numeric: tabular-nums;
   }
@@ -816,7 +815,7 @@
     border-radius: 6px;
     color: #fff;
     font-size: 12px;
-    font-weight: 500;
+    font-weight: var(--weight-medium);
     line-height: 28px;
   }
 

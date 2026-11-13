@@ -4,6 +4,7 @@ import { Pencil, Tag, X } from "lucide-react";
 import { useDocumentScrollLock } from "@/lib/useDocumentScrollLock";
 import { useNativeBackHandler } from "@/lib/useNativeBack";
 import type { TagItem, VideoDetail } from "@/types";
+import "@/styles/video-detail-dialogs.css";
 
 type Props = {
   video: VideoDetail;

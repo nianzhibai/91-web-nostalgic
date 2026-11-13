@@ -39,16 +39,18 @@ export function ConfirmModal({
   onCancel,
   onConfirm,
 }: ConfirmModalProps) {
+  // A running action owns the dialog until it settles, whatever closes it.
+  const cancel = () => { if (!loading) onCancel(); };
   return (
     <Modal
       open={open}
       title={title}
-      onClose={onCancel}
+      onClose={cancel}
       className={`admin-modal--confirm${modalClassName ? ` ${modalClassName}` : ""}`}
       restoreFocus={restoreFocus}
       footer={
         <>
-          <button type="button" className="admin-btn" onClick={onCancel} disabled={loading}>
+          <button type="button" className="admin-btn" onClick={cancel} disabled={loading}>
             {cancelText}
           </button>
           <button

@@ -54,6 +54,7 @@ import type {
   VideoItem,
 } from "@/types";
 import type { VideoReactionCounts } from "@/lib/videoReaction";
+import "@/styles/video-detail-dialogs.css";
 
 const DETAIL_CACHE_LIMIT = 20;
 const RECOMMENDATIONS_CACHE_LIMIT = 80;
@@ -383,10 +384,16 @@ function VideoDetailContent({ id }: { id?: string }) {
     if (!detail) return;
     setTagSaving(true);
     try {
-      const updated = await updateVideoTags(detail.id, nextTags);
-      const nextDetail = { ...detail, tags: updated.tags ?? [] };
-      setDetail(nextDetail);
-      rememberVideoDetail({ detail: nextDetail });
+      const videoID = detail.id;
+      const updated = await updateVideoTags(videoID, nextTags);
+      // Merge into the latest detail: reactions or a background refresh may
+      // have landed while the request was in flight.
+      setDetail((current) => {
+        if (!current || current.id !== videoID) return current;
+        const nextDetail = { ...current, tags: updated.tags ?? [] };
+        rememberVideoDetail({ detail: nextDetail });
+        return nextDetail;
+      });
     } finally {
       setTagSaving(false);
     }
@@ -517,7 +524,6 @@ function VideoDetailContent({ id }: { id?: string }) {
               <div className="vd-player-wrap">
                 <div className="vd-player">
                   <VideoPlayer
-                    id={detail.id}
                     src={detail.videoSrc}
                     playbackUrl={detail.playbackUrl}
                     preferTypedMp4SourceOnIOS={isPikPakMp4Detail(detail)}

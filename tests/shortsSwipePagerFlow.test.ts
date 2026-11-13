@@ -43,6 +43,7 @@ function createHarness(options?: HarnessOptions) {
   const timers = new Map<number, { at: number; run: () => void }>();
   const rootListeners = new Map<string, (event: unknown) => void>();
   const windowListeners = new Map<string, (event: unknown) => void>();
+  const documentListeners = new Map<string, (event: unknown) => void>();
   const trackListeners = new Map<string, Set<(event: unknown) => void>>();
 
   /**
@@ -104,11 +105,13 @@ function createHarness(options?: HarnessOptions) {
 
   const slides: Array<{
     dataset: { index: string };
+    isConnected: boolean;
     getBoundingClientRect: () => { top: number };
   }> = [];
   for (let index = 0; index < slideCount; index += 1) {
     const slide = {
       dataset: { index: String(index) },
+      isConnected: true,
       getBoundingClientRect: () => ({
         top:
           slides.indexOf(slide) * SLIDE_HEIGHT -
@@ -200,13 +203,21 @@ function createHarness(options?: HarnessOptions) {
   };
 
   define("window", fakeWindow);
-  define("document", { documentElement: { scrollHeight: root.scrollHeight } });
+  define("document", {
+    documentElement: { scrollHeight: root.scrollHeight },
+    addEventListener: (type: string, handler: (event: unknown) => void) => {
+      documentListeners.set(type, handler);
+    },
+    removeEventListener: (type: string) => {
+      documentListeners.delete(type);
+    },
+  });
   define("performance", { now: () => clock });
 
   let anchorIndex = 0;
   let gestureActive = false;
   let gestureEndReason: ShortsPagerGestureEnd | undefined;
-  const destroyPager = createShortsSwipePager({
+  const pager = createShortsSwipePager({
     root: root as unknown as HTMLElement,
     track: track as unknown as HTMLElement,
     usesDocumentScroll,
@@ -425,16 +436,25 @@ function createHarness(options?: HarnessOptions) {
       assert.ok(handler, "resize listener should be registered");
       handler({});
     },
+    fullscreenChange() {
+      const handler = documentListeners.get("fullscreenchange");
+      assert.ok(handler, "fullscreenchange listener should be registered");
+      handler({});
+    },
+    /** 程序化翻页（键盘、翻页按钮、连播、隐藏后跳下一条）。 */
+    goTo(index: number) {
+      return pager.goTo(slides[index] as unknown as HTMLElement);
+    },
     blur() {
       const handler = windowListeners.get("blur");
       assert.ok(handler, "blur listener should be registered");
       handler({});
     },
     hasListeners() {
-      return rootListeners.size > 0 || windowListeners.size > 0;
+      return rootListeners.size > 0 || windowListeners.size > 0 || documentListeners.size > 0;
     },
     destroy() {
-      destroyPager?.();
+      pager.destroy();
       restore("window", originalWindow);
       restore("document", originalDocument);
       restore("performance", originalPerformance);
@@ -1054,6 +1074,43 @@ test("a viewport resize realigns the active video", () => {
     h.advance(16);
     h.advance(300);
     assert.equal(h.root.scrollTop, SLIDE_HEIGHT * 2);
+  });
+});
+
+test("leaving fullscreen realigns the active video like any other viewport change", () => {
+  withHarness((h) => {
+    h.setAnchorIndex(3);
+    // 退出全屏后浏览器可能恢复进入全屏前的滚动位置。
+    h.root.scrollTop = SLIDE_HEIGHT;
+    h.fullscreenChange();
+    assert.equal(h.root.scrollTop, SLIDE_HEIGHT * 3);
+  });
+});
+
+test("programmatic navigation uses the step animation and never retargets one in flight", () => {
+  withHarness((h) => {
+    assert.equal(h.goTo(1), true);
+    assert.equal(h.root.scrollTop, SLIDE_HEIGHT);
+    assert.equal(h.settleDurationMs, SHORTS_WHEEL_SETTLE_MS);
+
+    // 连按两下 ↓：第二下落在动画途中，不能从中间位置再起一段。
+    h.setLiveTranslate(SLIDE_HEIGHT * 0.5);
+    const writes = h.transformWrites;
+    assert.equal(h.goTo(2), false);
+    assert.equal(h.root.scrollTop, SLIDE_HEIGHT);
+    assert.deepEqual(h.transformWrites, writes);
+
+    h.endTransition();
+    assert.equal(h.goTo(2), true);
+    assert.equal(h.root.scrollTop, SLIDE_HEIGHT * 2);
+  });
+});
+
+test("programmatic navigation ignores slides removed from the queue", () => {
+  withHarness((h) => {
+    h.slides[1].isConnected = false;
+    assert.equal(h.goTo(1), false);
+    assert.equal(h.root.scrollTop, 0);
   });
 });
 

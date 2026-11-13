@@ -15,16 +15,17 @@ export function DeleteDriveModal({
   const name = drive?.name || drive?.id || "";
   const title = "删除存储";
   const primaryText = deleting ? "删除中..." : "确认";
+  const cancel = () => { if (!deleting) onCancel(); };
 
   return (
     <Modal
       open={!!drive}
       title={title}
-      onClose={onCancel}
+      onClose={cancel}
       className="admin-modal--delete-confirm"
       footer={
         <>
-          <button className="admin-btn" onClick={onCancel} disabled={deleting}>
+          <button className="admin-btn" onClick={cancel} disabled={deleting}>
             取消
           </button>
           <button className="admin-btn" onClick={onConfirm} disabled={deleting}>

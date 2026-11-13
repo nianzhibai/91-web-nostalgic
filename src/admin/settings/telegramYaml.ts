@@ -53,11 +53,12 @@ export function telegramDraftFromDocument(document: Document): TelegramDraft {
     throw new Error("telegram 必须是映射对象");
   }
   const draft = { ...TELEGRAM_DEFAULTS };
+  const values = section == null ? undefined : document.toJS()?.telegram;
   for (const field of TELEGRAM_FIELDS) {
     const key = TELEGRAM_YAML_KEYS[field];
     const node = document.getIn(["telegram", key], true);
     if (node == null || (isScalar(node) && node.value === null)) continue;
-    const value = document.toJS()?.telegram?.[key];
+    const value = values?.[key];
     if (field === "telegramAllowedUserIds") {
       if (
         !Array.isArray(value) ||

@@ -1,6 +1,6 @@
 /* =========================================================
  * Layout
- * AppShell / Container / Hero / Section / Footer / Upload / BackToTop / PromoStrip
+ * AppShell / Container / Hero / Section / Footer / Upload / BackToTop
  * ========================================================= */
 .app-shell {
   display: flex;
@@ -218,69 +218,12 @@
 }
 
 /* =========================================================
- * Promo strip
- * ========================================================= */
-.promo-strip {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: var(--space-3);
-  margin-top: var(--space-4);
-}
-
-.promo-card {
-  height: 96px;
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-md);
-  background: var(--bg-surface);
-  color: var(--text-default);
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  border: 1px solid var(--border-subtle);
-  transition: transform var(--transition-fast), border-color var(--transition-fast),
-    box-shadow var(--transition-fast);
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .promo-card:hover {
-    border-color: var(--border-accent);
-    box-shadow: var(--shadow-md);
-    color: var(--text-strong);
-  }
-}
-
-.promo-card__label {
-  font-size: var(--font-xs);
-  text-transform: uppercase;
-  color: var(--accent);
-  letter-spacing: 0.05em;
-  font-weight: var(--weight-semibold);
-}
-
-.promo-card__title {
-  font-size: var(--font-md);
-  font-weight: var(--weight-semibold);
-  color: var(--text-strong);
-}
-
-.promo-card__meta {
-  font-size: var(--font-sm);
-  color: var(--text-muted);
-}
-
-@media (max-width: 1024px) {
-  .promo-strip {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-/* =========================================================
  * Back to top
  * ========================================================= */
 .back-to-top {
   position: fixed;
   right: 24px;
-  bottom: 24px;
+  bottom: calc(24px + env(safe-area-inset-bottom));
   width: 44px;
   height: 44px;
   border-radius: 50%;
@@ -308,10 +251,14 @@
   }
 }
 
+/* Shares the back-to-top slot and lifts above it with a transform when that
+   button appears, so the move stays on the compositor. */
 .home-refresh {
+  --home-refresh-lift: 0px;
+  --home-refresh-scale: 1;
   position: fixed;
   right: 24px;
-  bottom: 24px;
+  bottom: calc(24px + env(safe-area-inset-bottom));
   width: 44px;
   height: 44px;
   border: 0;
@@ -323,11 +270,12 @@
   box-shadow: 0 6px 24px var(--accent-glow), var(--shadow-inset);
   cursor: pointer;
   z-index: var(--z-overlay);
-  transition: transform var(--transition-normal), filter var(--transition-normal);
+  transform: translateY(calc(var(--home-refresh-lift) * -1)) scale(var(--home-refresh-scale));
+  transition: transform var(--duration-normal) var(--ease-out), filter var(--transition-normal);
 }
 
 .app-shell.is-back-to-top-visible .home-refresh {
-  bottom: 80px;
+  --home-refresh-lift: 56px;
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -342,13 +290,7 @@
 }
 
 .home-refresh.is-refreshing svg {
-  animation: home-refresh-spin 0.75s linear infinite;
-}
-
-@keyframes home-refresh-spin {
-  to {
-    transform: rotate(360deg);
-  }
+  animation: spin 0.75s linear infinite;
 }
 
 /* =========================================================
@@ -379,26 +321,6 @@
   color: var(--text-faint);
 }
 
-.footer__links {
-  display: flex;
-  gap: var(--space-5);
-  flex-wrap: wrap;
-}
-
-.footer__links a {
-  color: var(--text-muted);
-  font-size: var(--font-sm);
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .footer__links a:hover {
-    color: var(--accent);
-  }
-}
-
-/* =========================================================
- * Upload page
- * ========================================================= */
 .upload-panel {
   display: grid;
   gap: var(--space-4);
@@ -517,7 +439,7 @@
 
 .upload-field input:focus {
   border-color: var(--border-accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
+  box-shadow: var(--ring);
   outline: none;
 }
 
@@ -599,13 +521,13 @@
 .upload-message.is-error {
   background: var(--danger-soft);
   color: var(--danger);
-  border-color: rgba(241, 85, 108, 0.3);
+  border-color: color-mix(in srgb, var(--danger) 30%, transparent);
 }
 
 .upload-message.is-success {
   background: var(--success-soft);
   color: var(--success);
-  border-color: rgba(63, 207, 142, 0.3);
+  border-color: color-mix(in srgb, var(--success) 30%, transparent);
 }
 
 .upload-message a {
@@ -618,6 +540,18 @@
 .upload-actions {
   display: flex;
   justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.upload-progress {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.upload-progress__copy {
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  font-variant-numeric: tabular-nums;
 }
 
 .upload-submit {
@@ -678,11 +612,11 @@
 }
 
 .remote-upload-job.is-failed {
-  border-color: rgba(241, 85, 108, 0.3);
+  border-color: color-mix(in srgb, var(--danger) 30%, transparent);
 }
 
 .remote-upload-job.is-completed {
-  border-color: rgba(63, 207, 142, 0.28);
+  border-color: color-mix(in srgb, var(--success) 28%, transparent);
 }
 
 .remote-upload-job__main {
@@ -800,7 +734,7 @@
 
 @media (hover: hover) and (pointer: fine) {
   .remote-upload-cancel:hover:not(:disabled) {
-    border-color: rgba(241, 85, 108, 0.5);
+    border-color: color-mix(in srgb, var(--danger) 50%, transparent);
     color: var(--danger);
   }
 }
@@ -832,10 +766,6 @@
 
   .page-section {
     padding-block: var(--space-4);
-  }
-
-  .promo-strip {
-    grid-template-columns: 1fr;
   }
 
   .section-header {
@@ -895,19 +825,19 @@
 
   .back-to-top {
     right: 14px;
-    bottom: 14px;
+    bottom: calc(14px + env(safe-area-inset-bottom));
     width: 40px;
     height: 40px;
   }
 
   .home-refresh {
     right: 14px;
-    bottom: 14px;
+    bottom: calc(14px + env(safe-area-inset-bottom));
     width: 40px;
     height: 40px;
   }
 
   .app-shell.is-back-to-top-visible .home-refresh {
-    bottom: 66px;
+    --home-refresh-lift: 52px;
   }
 }

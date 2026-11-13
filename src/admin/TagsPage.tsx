@@ -9,7 +9,7 @@ import { AdminPagination } from "./AdminPagination";
 import { useAdminFloatingActionSpace } from "./useAdminFloatingActionSpace";
 import { useAdminRouteActive } from "./AdminRouteCache";
 import { useAdminResource } from "./useAdminResource";
-import { useAuth } from "./AuthContext";
+import { ResourceErrorBanners } from "./ResourceErrorBanners";
 
 const DESKTOP_TAGS_PAGE_SIZE = 24;
 const MOBILE_TAGS_PAGE_SIZE = 8;
@@ -29,9 +29,8 @@ type DeleteConfirmState =
 export function TagsPage() {
   const floatingActionPageRef = useAdminFloatingActionSpace<HTMLElement>();
   const routeActive = useAdminRouteActive();
-  const { invalidateSession } = useAuth();
   const tagsResource = useAdminResource(api.listTags, {
-    queryKey: "tags", active: routeActive, intervalMs: null, initialData: [], onUnauthorized: invalidateSession,
+    queryKey: "tags", active: routeActive, intervalMs: null, initialData: [],
   });
   const { data: tags, loading, invalidate: refresh } = tagsResource;
   const loadError = tagsResource.ready ? "" : tagsResource.error;
@@ -232,12 +231,9 @@ export function TagsPage() {
       ref={floatingActionPageRef}
       className="admin-page admin-page--with-floating-actions admin-tags-page"
     >
-      {tagsResource.ready && tagsResource.error && (
-        <div className="admin-detail-error" role="alert">
-          标签更新失败：{tagsResource.error}
-          <button type="button" className="admin-btn" onClick={() => void tagsResource.refresh()}>重试</button>
-        </div>
-      )}
+      <ResourceErrorBanners failures={[
+        { label: "标签更新失败", error: tagsResource.ready && tagsResource.error, retry: tagsResource.refresh },
+      ]} />
       <div className="admin-tags-layout">
         <div className="admin-tags-main">
           <div className="admin-tags-toolbar">
@@ -537,9 +533,7 @@ export function TagsPage() {
         modalClassName="admin-modal--delete-confirm admin-modal--tag-dialog admin-modal--tag-delete-confirm"
         loading={deletingId !== null || bulkDeleting}
         restoreFocus={false}
-        onCancel={() => {
-          if (deletingId === null && !bulkDeleting) setDeleteConfirm(null);
-        }}
+        onCancel={() => setDeleteConfirm(null)}
         onConfirm={confirmDelete}
       />
     </section>

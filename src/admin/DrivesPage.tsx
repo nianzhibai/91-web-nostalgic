@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import {
   ArrowLeft,
@@ -53,8 +53,7 @@ import { useAdminFloatingActionSpace } from "./useAdminFloatingActionSpace";
 import { useAdminRouteActive } from "./AdminRouteCache";
 import { useDriveDetailData } from "./drive/useDriveDetailData";
 import { useDriveListData } from "./drive/useDriveListData";
-import { useAuth } from "./AuthContext";
-import { useNavigate } from "react-router";
+import { ResourceErrorBanners } from "./ResourceErrorBanners";
 
 const DRIVE_BUSY_MESSAGE = "当前存储有正在进行的任务，请稍后重试";
 const MAINTENANCE_BUSY_MESSAGE = "当前有全量扫描任务正在进行，请稍后重试";
@@ -82,11 +81,6 @@ export function DrivesPage() {
   const maintenanceStatus = (selectedDriveId ? detail.resources.runtime.data?.maintenanceStatus : null) ?? listData.maintenanceStatus;
   const loading = selectedDriveId ? detail.loading : listData.loading;
   const loadError = selectedDriveId ? detail.resources.config.error : listData.loadError;
-  const { invalidateSession } = useAuth();
-  const navigate = useNavigate();
-  useEffect(() => {
-    if (detail.unauthorized || listData.unauthorized) { invalidateSession(); navigate("/login", { replace: true }); }
-  }, [detail.unauthorized, listData.unauthorized, invalidateSession, navigate]);
   const [modalOpen, setModalOpen] = useState(false);
   const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<api.AdminDrive | null>(null);
@@ -178,7 +172,7 @@ export function DrivesPage() {
     setForm(initialForm);
   }
 
-  function handleCreateFormChange(nextForm: FormState) {
+  function handleFormChange(nextForm: FormState) {
     setForm(nextForm);
     if (!nextForm.id && !hasCreateFormChanges(nextForm)) {
       setInitialForm(nextForm);
@@ -375,6 +369,59 @@ export function DrivesPage() {
 
   const selectedDrive = detail.drive;
 
+  // The credential dialog edits the selected drive in the detail view and
+  // creates or edits drives from the list; one set of dialogs serves both.
+  const editingExistingDrive = selectedDriveId ? true : list.some((x) => x.id === form.id);
+  const driveDialogs = (
+    <>
+      <Modal
+        open={modalOpen}
+        title={editingExistingDrive ? "编辑凭证" : "添加网盘"}
+        className="admin-modal--drive-form"
+        onClose={requestCloseDriveModal}
+        footer={form.id || createDriveTypeSelected ? (
+          <>
+            <button type="button" className="admin-btn" onClick={requestCloseDriveModal}>
+              取消
+            </button>
+            <button
+              type="button"
+              className="admin-btn is-primary"
+              onClick={handleSave}
+              disabled={saving}
+            >
+              {saving ? "保存中..." : editingExistingDrive ? "保存更改" : "保存"}
+            </button>
+          </>
+        ) : undefined}
+      >
+        <DriveForm
+          form={form}
+          onChange={handleFormChange}
+          isEdit={editingExistingDrive}
+          onTypeSelected={setCreateDriveTypeSelected}
+        />
+      </Modal>
+      <DeleteDriveModal
+        drive={deleteTarget}
+        deleting={deletingId === deleteTarget?.id}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={confirmDeleteDrive}
+      />
+      <ConfirmModal
+        open={discardConfirmOpen}
+        title="放弃未保存更改"
+        message="当前网盘配置有未保存的更改，确定要放弃吗？"
+        confirmText="放弃更改"
+        danger
+        centerMessage
+        modalClassName="admin-modal--delete-confirm"
+        onCancel={() => setDiscardConfirmOpen(false)}
+        onConfirm={discardDriveChanges}
+      />
+    </>
+  );
+
   if (selectedDriveId && !selectedDrive) {
     if (loading) {
       return (
@@ -419,12 +466,9 @@ export function DrivesPage() {
         {detail.connection === "reconnecting" && (
           <div className="admin-detail-error" role="status">连接中断，正在重连；当前显示上次更新的数据。</div>
         )}
-        {detail.resources.config.error && (
-          <div className="admin-detail-error" role="status">
-            网盘信息更新失败：{detail.resources.config.error}
-            <button type="button" className="admin-btn" onClick={() => void detail.refresh(["config"])}>重试</button>
-          </div>
-        )}
+        <ResourceErrorBanners failures={[
+          { label: "网盘信息更新失败", error: detail.resources.config.error, retry: () => detail.refresh(["config"]) },
+        ]} />
         <div className="admin-drive-detail-layout">
           <div className="admin-drive-detail-layout__info">
             <div className="admin-detail-card">
@@ -514,12 +558,10 @@ export function DrivesPage() {
               loading={!detail.resources.runtime.data}
             />
 
-            {(["runtime", "stats"] as const).map((resource) => detail.resources[resource].error && (
-              <div className="admin-detail-error" role="status" key={resource}>
-                {resource === "runtime" ? "任务状态" : "资源数量"}更新失败：{detail.resources[resource].error}
-                <button type="button" className="admin-btn" onClick={() => void detail.refresh([resource])}>重试</button>
-              </div>
-            ))}
+            <ResourceErrorBanners failures={[
+              { label: "任务状态更新失败", error: detail.resources.runtime.error, retry: () => detail.refresh(["runtime"]) },
+              { label: "资源数量更新失败", error: detail.resources.stats.error, retry: () => detail.refresh(["stats"]) },
+            ]} />
 
             <div className="admin-detail-card">
               <header className="admin-detail-card__title">
@@ -528,12 +570,9 @@ export function DrivesPage() {
                   <span>本地存储占用</span>
                 </div>
               </header>
-              {detail.resources.storage.error && (
-                <div className="admin-detail-error" role="status">
-                  存储用量更新失败：{detail.resources.storage.error}
-                  <button type="button" className="admin-btn" onClick={() => void detail.refresh(["storage"])}>重试</button>
-                </div>
-              )}
+              <ResourceErrorBanners failures={[
+                { label: "存储用量更新失败", error: detail.resources.storage.error, retry: () => detail.refresh(["storage"]) },
+              ]} />
               <div className="admin-local-storage-metrics" aria-busy={detail.resources.storage.loading || undefined}>
                 <div className="admin-local-storage-metric">
                   <span>封面</span>
@@ -564,54 +603,7 @@ export function DrivesPage() {
           </div>
         </div>
 
-        <Modal
-          open={modalOpen}
-          title="编辑凭证"
-          className="admin-modal--drive-form"
-          onClose={requestCloseDriveModal}
-          footer={
-            <>
-              <button type="button" className="admin-btn" onClick={requestCloseDriveModal}>
-                取消
-              </button>
-              <button
-                type="button"
-                className="admin-btn is-primary"
-                onClick={handleSave}
-                disabled={saving}
-              >
-                {saving ? "保存中..." : "保存更改"}
-              </button>
-            </>
-          }
-        >
-          <DriveForm
-            form={form}
-            onChange={setForm}
-            isEdit={true}
-          />
-        </Modal>
-        <DeleteDriveModal
-          drive={deleteTarget}
-          deleting={deletingId === deleteTarget?.id}
-          onCancel={() => {
-            if (!deletingId) {
-              setDeleteTarget(null);
-            }
-          }}
-          onConfirm={confirmDeleteDrive}
-        />
-        <ConfirmModal
-          open={discardConfirmOpen}
-          title="放弃未保存更改"
-          message="当前网盘配置有未保存的更改，确定要放弃吗？"
-          confirmText="放弃更改"
-          danger
-          centerMessage
-          modalClassName="admin-modal--delete-confirm"
-          onCancel={() => setDiscardConfirmOpen(false)}
-          onConfirm={discardDriveChanges}
-        />
+        {driveDialogs}
       </section>
     );
   }
@@ -651,16 +643,11 @@ export function DrivesPage() {
 
       <StorageSummary storage={storage} loading={listData.storageLoading} />
 
-      {[
-        { title: "网盘列表", error: listData.listError, retry: listData.refreshList },
-        { title: "存储用量", error: listData.storageError, retry: listData.refreshStorage },
-        { title: "维护状态", error: listData.maintenanceError, retry: listData.refreshMaintenance },
-      ].map(({ title, error, retry }) => error && (
-        <div className="admin-detail-error" role="status" key={title}>
-          {title}更新失败：{error}
-          <button type="button" className="admin-btn" onClick={() => void retry()}>重试</button>
-        </div>
-      ))}
+      <ResourceErrorBanners failures={[
+        { label: "网盘列表更新失败", error: listData.listError, retry: listData.refreshList },
+        { label: "存储用量更新失败", error: listData.storageError, retry: listData.refreshStorage },
+        { label: "维护状态更新失败", error: listData.maintenanceError, retry: listData.refreshMaintenance },
+      ]} />
       {loading ? (
         <DriveListSkeleton />
       ) : loadError ? (
@@ -735,55 +722,7 @@ export function DrivesPage() {
         添加网盘
       </button>
 
-      <Modal
-        open={modalOpen}
-        title={form.id && list.find((x) => x.id === form.id) ? "编辑凭证" : "添加网盘"}
-        className="admin-modal--drive-form"
-        onClose={requestCloseDriveModal}
-        footer={form.id || createDriveTypeSelected ? (
-          <>
-            <button type="button" className="admin-btn" onClick={requestCloseDriveModal}>
-              取消
-            </button>
-            <button
-              type="button"
-              className="admin-btn is-primary"
-              onClick={handleSave}
-              disabled={saving}
-            >
-              {saving ? "保存中..." : "保存"}
-            </button>
-          </>
-        ) : undefined}
-      >
-        <DriveForm
-          form={form}
-          onChange={handleCreateFormChange}
-          isEdit={!!list.find((x) => x.id === form.id)}
-          onTypeSelected={setCreateDriveTypeSelected}
-        />
-      </Modal>
-      <DeleteDriveModal
-        drive={deleteTarget}
-        deleting={deletingId === deleteTarget?.id}
-        onCancel={() => {
-          if (!deletingId) {
-            setDeleteTarget(null);
-          }
-        }}
-        onConfirm={confirmDeleteDrive}
-      />
-      <ConfirmModal
-        open={discardConfirmOpen}
-        title="放弃未保存更改"
-        message="当前网盘配置有未保存的更改，确定要放弃吗？"
-        confirmText="放弃更改"
-        danger
-        centerMessage
-        modalClassName="admin-modal--delete-confirm"
-        onCancel={() => setDiscardConfirmOpen(false)}
-        onConfirm={discardDriveChanges}
-      />
+      {driveDialogs}
     </section>
   );
 }

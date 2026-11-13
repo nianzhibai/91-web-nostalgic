@@ -4,9 +4,10 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
-import { Link } from "react-router";
+import { Link, useBlocker } from "react-router";
 import { Check, Link2, UploadCloud, X } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { SectionHeader } from "@/components/SectionHeader";
@@ -15,10 +16,10 @@ import {
   createRemoteUpload,
   fetchRemoteUploads,
   fetchUploadTags,
-  uploadVideo,
   type RemoteUploadJob,
   type RemoteUploadState,
 } from "@/data/videos";
+import { uploadVideoWithProgress, type UploadProgress } from "@/data/uploadVideo";
 import { defaultUploadTitleFromFileName } from "@/lib/uploadTitle";
 import type { VideoItem } from "@/types";
 
@@ -40,6 +41,8 @@ const REMOTE_STATE_LABELS: Record<RemoteUploadState, string> = {
 
 type UploadMode = "local" | "remote";
 
+const LEAVE_DURING_UPLOAD_PROMPT = "视频仍在上传，离开页面会取消上传。确定离开吗？";
+
 export default function UploadPage() {
   const [mode, setMode] = useState<UploadMode>("local");
   const [file, setFile] = useState<File | null>(null);
@@ -48,6 +51,10 @@ export default function UploadPage() {
   const [tags, setTags] = useState<string[]>([]);
   const [uploadTagOptions, setUploadTagOptions] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
+  // Remounting the input clears its value so the same file can be picked again.
+  const [fileInputKey, setFileInputKey] = useState(0);
+  const uploadAbortRef = useRef<AbortController | null>(null);
   const [error, setError] = useState("");
   const [uploaded, setUploaded] = useState<VideoItem | null>(null);
   const [submittedJob, setSubmittedJob] = useState<RemoteUploadJob | null>(null);
@@ -115,6 +122,24 @@ export default function UploadPage() {
     };
   }, [refreshJobs]);
 
+  // A local upload lives in this page's request; leaving cancels it.
+  const localUploading = saving && mode === "local";
+  useEffect(() => () => uploadAbortRef.current?.abort(), []);
+  useEffect(() => {
+    if (!localUploading) return;
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [localUploading]);
+  const leaveBlocker = useBlocker(localUploading);
+  useEffect(() => {
+    if (leaveBlocker.state !== "blocked") return;
+    if (window.confirm(LEAVE_DURING_UPLOAD_PROMPT)) leaveBlocker.proceed();
+    else leaveBlocker.reset();
+  }, [leaveBlocker]);
+
   const hasActiveJobs = jobs.some((job) => ACTIVE_REMOTE_STATES.has(job.state));
 
   useEffect(() => {
@@ -138,7 +163,7 @@ export default function UploadPage() {
     saving || (mode === "local" ? !file : !remoteURLValid);
 
   function changeMode(nextMode: UploadMode) {
-    if (nextMode === mode) return;
+    if (nextMode === mode || saving) return;
     setMode(nextMode);
     setFile(null);
     setRemoteURL("");
@@ -172,11 +197,18 @@ export default function UploadPage() {
     setError("");
     setUploaded(null);
     setSubmittedJob(null);
+    const controller = new AbortController();
+    uploadAbortRef.current = controller;
     try {
       if (mode === "local" && file) {
-        const video = await uploadVideo({ file, title, tags });
+        setUploadProgress({ loaded: 0, total: file.size });
+        const video = await uploadVideoWithProgress(
+          { file, title, tags },
+          { signal: controller.signal, onProgress: setUploadProgress }
+        );
         setUploaded(video);
         setFile(null);
+        setFileInputKey((key) => key + 1);
       } else if (mode === "remote") {
         const job = await createRemoteUpload({ url: remoteURL, title, tags });
         setSubmittedJob(job);
@@ -189,6 +221,7 @@ export default function UploadPage() {
       setTitle("");
       setTags([]);
     } catch (submitError) {
+      if (controller.signal.aborted) return;
       setError(
         submitError instanceof Error
           ? submitError.message
@@ -197,8 +230,19 @@ export default function UploadPage() {
             : "上传失败，请检查文件格式后重试"
       );
     } finally {
-      setSaving(false);
+      if (uploadAbortRef.current === controller) uploadAbortRef.current = null;
+      if (!controller.signal.aborted) {
+        setSaving(false);
+        setUploadProgress(null);
+      }
     }
+  }
+
+  function cancelLocalUpload() {
+    uploadAbortRef.current?.abort();
+    uploadAbortRef.current = null;
+    setSaving(false);
+    setUploadProgress(null);
   }
 
   async function handleCancel(jobID: string) {
@@ -234,6 +278,7 @@ export default function UploadPage() {
               role="tab"
               aria-selected={mode === "local"}
               className={mode === "local" ? "is-active" : ""}
+              disabled={saving && mode !== "local"}
               onClick={() => changeMode("local")}
             >
               本地文件
@@ -243,6 +288,7 @@ export default function UploadPage() {
               role="tab"
               aria-selected={mode === "remote"}
               className={mode === "remote" ? "is-active" : ""}
+              disabled={saving && mode !== "remote"}
               onClick={() => changeMode("remote")}
             >
               视频直链
@@ -252,7 +298,9 @@ export default function UploadPage() {
           {mode === "local" ? (
             <label key="local-upload-file" className="upload-drop">
               <input
+                key={fileInputKey}
                 type="file"
+                disabled={saving}
                 accept="video/*,.avi,.mkv,.mov,.mp4,.webm"
                 onChange={handleFileChange}
               />
@@ -336,7 +384,21 @@ export default function UploadPage() {
             </div>
           ) : null}
 
+          {localUploading && uploadProgress ? (
+            <UploadProgressBar progress={uploadProgress} />
+          ) : null}
+
           <div className="upload-actions">
+            {localUploading ? (
+              <button
+                type="button"
+                className="remote-upload-cancel"
+                onClick={cancelLocalUpload}
+              >
+                <X size={15} />
+                取消上传
+              </button>
+            ) : null}
             <button
               className="upload-submit"
               type="submit"
@@ -442,6 +504,31 @@ export default function UploadPage() {
         </section>
       </div>
     </AppShell>
+  );
+}
+
+function UploadProgressBar({ progress }: { progress: UploadProgress }) {
+  const percent = progress.total > 0
+    ? Math.min(100, (progress.loaded / progress.total) * 100)
+    : 0;
+  return (
+    <div className="upload-progress">
+      <div
+        className="remote-upload-progress"
+        role="progressbar"
+        aria-label="上传进度"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(percent)}
+      >
+        <span style={{ width: `${percent}%` }} />
+      </div>
+      <span className="upload-progress__copy">
+        {percent >= 100
+          ? "上传完成，正在入库…"
+          : `${percent.toFixed(1)}% · ${formatBytes(progress.loaded)} / ${formatBytes(progress.total)}`}
+      </span>
+    </div>
   );
 }
 

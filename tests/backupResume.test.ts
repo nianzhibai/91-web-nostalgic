@@ -59,3 +59,42 @@ for (const scenario of ["writable", "read-only"] as const) {
     }
   });
 }
+
+for (const [status, kept] of [[503, true], [404, false]] as const) {
+  test(`a ${status} while checking the upload ${kept ? "keeps" : "clears"} the resume hint`, async (t) => {
+    const storage = window.localStorage;
+    const previousStorage = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
+    Object.defineProperty(globalThis, "localStorage", { configurable: true, value: storage });
+    t.after(() => {
+      storage.removeItem(resumeKey);
+      if (previousStorage) Object.defineProperty(globalThis, "localStorage", previousStorage);
+      else Reflect.deleteProperty(globalThis, "localStorage");
+    });
+    storage.setItem(resumeKey, JSON.stringify(hint));
+    t.mock.method(globalThis, "fetch", async (input: string | URL | Request) => {
+      const path = String(input);
+      if (path === "/admin/api/backup-uploads/upload-1") return Response.json({ error: "unavailable" }, { status });
+      const responses: Record<string, unknown> = {
+        "/api/auth/me": { authenticated: true, role: "admin" },
+        "/admin/api/backups": { backups: [] },
+        "/admin/api/backup-transfers": [],
+        "/admin/api/backup-receives": [],
+      };
+      assert.ok(path in responses, `Unexpected request: ${path}`);
+      return Response.json(responses[path]);
+    });
+    let view!: ReturnType<typeof render>;
+    await act(async () => {
+      view = render(createElement(MemoryRouter, null,
+        createElement(AuthProvider, { children:
+          createElement(ToastProvider, { children: createElement(BackupPage) }),
+        }),
+      ));
+    });
+    try {
+      assert.equal(storage.getItem(resumeKey) !== null, kept);
+    } finally {
+      await act(async () => view.unmount());
+    }
+  });
+}

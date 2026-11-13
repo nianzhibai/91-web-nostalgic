@@ -1,0 +1,671 @@
+/* Detail and share page player (ArtPlayer chrome, overlays, HUDs). Loaded with VideoPlayer. */
+
+.video-player {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  width: 100%;
+}
+
+.video-player,
+.video-player__art.art-video-player {
+  --video-player-progress: #ff5634;
+  --video-player-progress-loaded: rgba(255, 86, 52, 0.34);
+  --video-player-progress-track: rgba(255, 255, 255, 0.24);
+  --video-player-progress-hover: rgba(255, 210, 198, 0.36);
+}
+
+:root[data-theme="light"] .video-player,
+:root[data-theme="light"] .video-player__art.art-video-player {
+  --video-player-progress: #ec4f86;
+  --video-player-progress-loaded: rgba(236, 79, 134, 0.34);
+  --video-player-progress-track: rgba(255, 255, 255, 0.28);
+  --video-player-progress-hover: rgba(255, 197, 216, 0.42);
+}
+
+.video-player__mount {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background: #000;
+  z-index: 1;
+}
+
+.video-player__art.art-video-player {
+  width: 100%;
+  height: 100%;
+  --art-theme: var(--video-player-progress);
+  --art-loaded-color: var(--video-player-progress-loaded);
+  --art-progress-color: var(--video-player-progress-track);
+  --art-hover-color: var(--video-player-progress-hover);
+  --art-progress-height: 5px;
+  --art-control-height: 44px;
+  --art-control-icon-size: 32px;
+  --art-bottom-height: 112px;
+  --art-widget-background: rgba(8, 9, 13, 0.86);
+  --art-tip-background: rgba(8, 9, 13, 0.78);
+}
+
+/* Fullscreen reparents the player; visibility and theme belong to that node. */
+.video-player__art.art-video-player .art-bottom {
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 180ms ease, visibility 0s 180ms;
+}
+
+.video-player__art.art-video-player.art-control-show .art-bottom {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 140ms ease, visibility 0s;
+}
+
+.video-player__art.art-video-player .art-bottom .art-controls,
+.video-player__art.art-video-player .art-bottom .art-progress {
+  transform: none;
+  transition: none;
+}
+
+.video-player__art.art-video-player .art-mask {
+  transition: opacity 180ms ease, visibility 0s 180ms;
+}
+
+.video-player__art.art-video-player.art-control-show .art-mask {
+  transition: opacity 140ms ease, visibility 0s;
+}
+
+.video-player__art.art-video-player:not(.art-control-show) .art-mask,
+.video-player__art.art-video-player.art-lock .art-bottom,
+.video-player__art.art-video-player.art-lock .art-mask {
+  opacity: 0;
+  visibility: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .video-player__art.art-video-player .art-bottom,
+  .video-player__art.art-video-player.art-control-show .art-bottom,
+  .video-player__art.art-video-player .art-mask,
+  .video-player__art.art-video-player.art-control-show .art-mask {
+    transition: none;
+  }
+}
+
+/* ArtPlayer 会在运行时后插入图标的 display:flex，保留完整层级以确保覆盖它。 */
+.video-player__art.art-video-player
+  .art-settings
+  .art-setting-panel
+  .art-setting-item[data-name^="online-subtitle-option-"] {
+  justify-content: center;
+}
+
+.video-player__art.art-video-player
+  .art-settings
+  .art-setting-panel
+  .art-setting-item[data-name^="online-subtitle-option-"]
+  > .art-setting-item-left
+  > .art-setting-item-left-icon {
+  display: none;
+}
+
+/*
+ * 设置面板宽度是 ArtPlayer 写死的内联样式，且 .art-setting-item-left 默认
+ * flex-shrink: 0。字幕名字过长时，居中的一行会被左右两头同时裁掉，只剩中间
+ * 一段。这里允许收缩并交给省略号处理，作为 JS 截断之外的兜底。
+ */
+.video-player__art.art-video-player
+  .art-settings
+  .art-setting-panel
+  .art-setting-item[data-name^="online-subtitle-option-"]
+  > .art-setting-item-left {
+  min-width: 0;
+  flex-shrink: 1;
+}
+
+.video-player__subtitle-option {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Every setting reserves space for its label and arrow before truncating text. */
+.video-player__art.art-video-player .art-settings {
+  max-width: calc(100% - var(--art-padding) * 2);
+  max-height: min(var(--art-settings-max-height), calc(100% - var(--art-control-height) - var(--art-padding)));
+}
+
+.video-player__art.art-video-player .art-settings .art-setting-panel .art-setting-item {
+  column-gap: 8px;
+}
+
+.video-player__art.art-video-player .art-settings .art-setting-panel .art-setting-item .art-setting-item-left,
+.video-player__art.art-video-player .art-settings .art-setting-panel .art-setting-item .art-setting-item-right {
+  min-width: 0;
+}
+
+.video-player__art.art-video-player .art-settings .art-setting-panel .art-setting-item .art-setting-item-left {
+  flex-shrink: 0;
+}
+
+.video-player__art.art-video-player .art-settings .art-setting-panel .art-setting-item-back > .art-setting-item-left {
+  flex: 1;
+  justify-content: flex-start;
+}
+
+.video-player__art.art-video-player .art-settings .art-setting-panel .art-setting-item .art-setting-item-left-icon,
+.video-player__art.art-video-player .art-settings .art-setting-panel .art-setting-item .art-setting-item-right-icon {
+  flex-shrink: 0;
+}
+
+.video-player__art.art-video-player .art-settings .art-setting-panel .art-setting-item .art-setting-item-right > .art-setting-item-right-icon {
+  min-width: 24px;
+}
+
+.video-player__art.art-video-player .art-settings .art-icon-arrowRight svg {
+  width: 24px;
+  height: 24px;
+}
+
+.video-player__art.art-video-player .art-settings .art-setting-panel .art-setting-item .art-setting-item-left-text,
+.video-player__art.art-video-player .art-settings .art-setting-panel .art-setting-item .art-setting-item-right-tooltip {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.video-player__art.art-video-player[data-settings-layout="compact"] {
+  --art-settings-icon-size: 18px;
+  --art-settings-max-height: 180px;
+  --art-selector-max-height: 180px;
+  --art-scrollbar-size: 3px;
+}
+
+.video-player__art[data-settings-layout="compact"] .art-settings {
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.video-player__art[data-settings-layout="compact"] .art-settings .art-setting-panel .art-setting-item {
+  padding: 0 7px;
+}
+
+.video-player__art[data-settings-layout="compact"] .art-settings .art-setting-item-left,
+.video-player__art[data-settings-layout="compact"] .art-settings .art-setting-item-right {
+  gap: 5px;
+}
+
+/* 全屏时让字幕跟随 object-fit: contain 后的实际画面下缘，而不是视口底部。 */
+.art-video-player.art-fullscreen,
+.art-video-player.art-fullscreen-web,
+.art-video-player.art-manual-orientation {
+  --art-subtitle-bottom: var(--video-player-subtitle-bottom, 15px);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .art-video-player.art-fullscreen,
+  .art-video-player.art-fullscreen-web,
+  .art-video-player.art-manual-orientation {
+    --art-subtitle-font-size: clamp(28px, 1.8vw, 36px);
+  }
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .art-video-player.art-fullscreen,
+  .art-video-player.art-fullscreen-web,
+  .art-video-player.art-manual-orientation {
+    --art-subtitle-font-size: 20px;
+  }
+
+  .art-video-player.art-fullscreen[data-video-player-subtitle-orientation="landscape"],
+  .art-video-player.art-fullscreen-web[data-video-player-subtitle-orientation="landscape"],
+  .art-video-player.art-manual-orientation[data-video-player-subtitle-orientation="landscape"] {
+    --art-subtitle-font-size: 28px;
+  }
+
+  /* 竖屏画面下方空间充足，控制栏显隐时保持字幕位置稳定。 */
+  .art-video-player.art-fullscreen.art-control-show[data-video-player-subtitle-orientation="portrait"]
+    .art-subtitle,
+  .art-video-player.art-fullscreen-web.art-control-show[data-video-player-subtitle-orientation="portrait"]
+    .art-subtitle,
+  .art-video-player.art-manual-orientation.art-control-show[data-video-player-subtitle-orientation="portrait"]
+    .art-subtitle {
+    bottom: var(--art-subtitle-bottom);
+  }
+}
+
+.video-player .art-poster {
+  background-color: #000;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+}
+
+.video-player__art .art-video,
+.video-player__art .art-poster {
+  filter: brightness(var(--video-player-brightness, 1));
+}
+
+.art-video-player.art-manual-orientation {
+  background: #000;
+  transition:
+    width 180ms var(--ease-out),
+    height 180ms var(--ease-out),
+    transform 180ms var(--ease-out);
+}
+
+.art-video-player .art-control-orientationToggle {
+  display: none;
+}
+
+.art-video-player .art-control-orientationToggle .video-player__orientation-control-icon {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.art-video-player
+  .art-control-orientationToggle[data-next-orientation="landscape"]
+  .video-player__orientation-control-icon--to-landscape,
+.art-video-player
+  .art-control-orientationToggle[data-next-orientation="portrait"]
+  .video-player__orientation-control-icon--to-portrait {
+  display: inline-flex;
+}
+
+.art-video-player .art-control-orientationToggle svg {
+  display: block;
+  fill: none;
+  transform: none;
+}
+
+.art-video-player .art-control-orientationToggle svg * {
+  fill: none;
+}
+
+.art-video-player.art-manual-orientation .art-control-orientationToggle svg {
+  transform: rotate(-90deg);
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .art-video-player .art-control-orientationToggle {
+    display: flex;
+  }
+
+  .video-player__art,
+  .video-player__art .art-video {
+    touch-action: pan-y;
+  }
+
+  .video-player__art.art-fullscreen,
+  .video-player__art.art-fullscreen .art-video,
+  .video-player__art.art-fullscreen-web,
+  .video-player__art.art-fullscreen-web .art-video,
+  .video-player__art.art-manual-orientation,
+  .video-player__art.art-manual-orientation .art-video {
+    touch-action: none;
+  }
+}
+
+.video-player video,
+.video-player .art-video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  /* 禁掉 iOS Safari 长按弹出的"存储视频/拷贝"浮层，
+     以及长按时的文本选择高亮，避免和长按 2 倍速冲突 */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.video-player__triple-screen-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 12;
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: #000;
+  pointer-events: none;
+  filter: brightness(var(--video-player-brightness, 1));
+}
+
+.video-player__triple-screen-canvas[hidden] {
+  display: none;
+}
+
+.art-video-player.art-triple-screen-active .art-subtitle {
+  display: none;
+}
+
+.art-video-player
+  .art-control[data-triple-screen-control][data-triple-screen-eligible="false"] {
+  display: none !important;
+}
+
+.art-video-player .art-control[data-triple-screen-control] {
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.art-video-player
+  .art-control[data-triple-screen-control][aria-pressed="true"] {
+  color: rgba(255, 255, 255, 0.88);
+  opacity: 1;
+}
+
+.video-player__triple-screen-control-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+}
+
+.video-player__triple-screen-control-icon svg {
+  width: 30px;
+  height: 30px;
+}
+
+.video-player__triple-screen-control-icon svg,
+.video-player__triple-screen-control-icon svg * {
+  fill: none;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .art-video-player .art-control[data-triple-screen-control] {
+    display: none !important;
+  }
+}
+
+/*
+ * React overlays are portalled into ArtPlayer's player element so they follow
+ * it into fullscreen. Inside it they must clear ArtPlayer's own layers:
+ * the preview sits above the controls (60), the cards above loading (70) and
+ * notices (80) but below the settings panel (90).
+ */
+.video-player__error,
+.video-player__processing,
+.video-player__seek-preview {
+  position: absolute;
+  font-family: var(--font-sans);
+  text-shadow: none;
+}
+
+.video-player__error,
+.video-player__processing {
+  z-index: 85;
+}
+
+.video-player__seek-preview {
+  z-index: 65;
+}
+
+.video-player__error button {
+  min-height: 30px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  padding: 0 12px;
+  background: var(--video-player-progress);
+  color: #fff;
+  font-size: var(--font-sm);
+  font-weight: var(--weight-bold);
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.24);
+}
+
+.video-player__error button + button {
+  background: rgba(255, 255, 255, 0.13);
+  color: rgba(255, 255, 255, 0.92);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .video-player__error button:hover {
+    filter: brightness(1.08);
+  }
+}
+
+.video-player__error {
+  left: 50%;
+  top: 50%;
+  width: min(320px, calc(100% - 32px));
+  padding: 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(8, 9, 13, 0.86);
+  color: #fff;
+  text-align: center;
+  transform: translate(-50%, -50%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.38);
+}
+
+.video-player__error-title {
+  margin-bottom: 6px;
+  font-size: var(--font-lg);
+  font-weight: var(--weight-bold);
+}
+
+.video-player__processing {
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(360px, calc(100% - 40px));
+  padding: 18px;
+  border-radius: var(--radius-md);
+  background: rgba(8, 9, 13, 0.86);
+  color: #fff;
+  font-size: var(--font-md);
+  line-height: 1.6;
+  text-align: center;
+  pointer-events: none;
+}
+
+.video-player__error-message {
+  color: rgba(255, 255, 255, 0.76);
+  font-size: var(--font-md);
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.video-player__error-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.video-player__art-gesture-hud {
+  position: absolute;
+  left: 50%;
+  top: 16%;
+  z-index: 128;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 76px;
+  min-height: 34px;
+  padding: 0 10px;
+  border-radius: 8px;
+  background: rgba(18, 18, 20, 0.8);
+  color: #fff;
+  font-size: 18px;
+  font-weight: var(--weight-semibold);
+  line-height: 1;
+  text-align: center;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  animation: video-player-art-hud-in 120ms ease-out both;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.video-player__art-gesture-hud-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  transform: translateY(-1px);
+}
+
+.video-player__art-gesture-hud-icon svg {
+  display: block;
+  width: 18px;
+  height: 18px;
+}
+
+.video-player__art-gesture-hud-value {
+  min-width: 36px;
+  text-align: left;
+  letter-spacing: 0;
+}
+
+/* Seek feedback is a text-only "快进 01:23 / 10:00" label. */
+.video-player__art-gesture-hud--seek {
+  padding: 0 12px;
+}
+
+.video-player__art-gesture-hud--seek .video-player__art-gesture-hud-value {
+  min-width: 0;
+  white-space: nowrap;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.art-video-player.art-fullscreen .video-player__art-gesture-hud,
+.art-video-player.art-fullscreen-web .video-player__art-gesture-hud,
+.art-video-player.art-manual-orientation .video-player__art-gesture-hud {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 16%);
+}
+
+@keyframes video-player-art-hud-in {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+.video-player__seek-preview {
+  bottom: 66px;
+  width: 168px;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(8, 9, 13, 0.88);
+  transform: translateX(-50%);
+  pointer-events: none;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.42);
+}
+
+.video-player__seek-preview video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  height: auto;
+  object-fit: cover;
+  filter: none;
+  background: #000;
+}
+
+.video-player__seek-preview span {
+  display: block;
+  padding: 5px 8px 6px;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: var(--font-xs);
+  font-weight: var(--weight-bold);
+  text-align: center;
+}
+
+/* 长按 2 倍速时的角标提示 */
+.video-player__art-rate-hint {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  background: rgba(8, 9, 13, 0.72);
+  color: #fff;
+  font-size: var(--font-sm);
+  font-weight: var(--weight-bold);
+  letter-spacing: 0.04em;
+  pointer-events: none;
+  z-index: 130;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: video-player-rate-hint-in 120ms ease-out;
+}
+
+.art-video-player.art-fullscreen .video-player__art-rate-hint,
+.art-video-player.art-fullscreen-web .video-player__art-rate-hint,
+.art-video-player.art-manual-orientation .video-player__art-rate-hint {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 12px);
+}
+
+:root[data-theme="light"] .video-player__error,
+:root[data-theme="light"] .video-player__seek-preview,
+:root[data-theme="light"] .video-player__gesture-hud {
+  border-color: rgba(255, 197, 216, 0.28);
+}
+
+@media (orientation: landscape) and (max-height: 560px) {
+  .video-player__art-gesture-hud {
+    top: 14%;
+    gap: 4px;
+    min-width: 72px;
+    min-height: 31px;
+    padding: 0 9px;
+    border-radius: 8px;
+    font-size: clamp(15px, 4.6vh, 18px);
+  }
+
+  .video-player__art-gesture-hud-icon {
+    width: clamp(15px, 4.6vh, 18px);
+    height: clamp(15px, 4.6vh, 18px);
+    flex-basis: clamp(15px, 4.6vh, 18px);
+  }
+
+  .video-player__art-gesture-hud-icon svg {
+    width: clamp(15px, 4.6vh, 18px);
+    height: clamp(15px, 4.6vh, 18px);
+  }
+
+  .art-video-player.art-fullscreen .video-player__art-gesture-hud,
+  .art-video-player.art-fullscreen-web .video-player__art-gesture-hud,
+  .art-video-player.art-manual-orientation .video-player__art-gesture-hud {
+    top: calc(env(safe-area-inset-top, 0px) + 14%);
+  }
+}
+
+@media (max-width: 640px) {
+  .video-player__seek-preview {
+    display: none;
+  }
+}
+
+@keyframes video-player-rate-hint-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -4px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}

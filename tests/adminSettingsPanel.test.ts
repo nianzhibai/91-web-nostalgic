@@ -53,8 +53,8 @@ const adminCss = readFileSync(
 test("configuration panel is a dedicated protected admin route", () => {
   assert.match(appSource, /const SettingsPage = lazy/);
   assert.match(appSource, /path="settings"[\s\S]*?<SettingsPage \/>/);
-  assert.match(layoutSource, /to="\/admin\/settings"/);
-  assert.match(layoutSource, />配置面板</);
+  assert.match(layoutSource, /\{ to: "\/admin\/settings", Icon: SlidersHorizontal \}/);
+  assert.match(pageTitleSource, /\{ path: "\/admin\/settings", title: "配置面板" \}/);
 });
 
 test("configuration panel groups typed fields from the real YAML document", () => {
@@ -84,7 +84,7 @@ test("configuration panel groups typed fields from the real YAML document", () =
   assert.match(pageSource, /applyVisualFields/);
   assert.match(configYamlSource, /parseDocument/);
   assert.match(configYamlSource, /nightlyStartTimeEdits/);
-  assert.match(configYamlSource, /nightlyTimezoneEdits/);
+  assert.match(configYamlSource, /\["nightlyTimezone", "nightly", "timezone"\]/);
   assert.match(configYamlSource, /nightlyTimezone: string/);
   assert.match(configYamlSource, /\["nightly", "timezone"\]/);
   assert.doesNotMatch(configYamlSource, /document\.toString/);
@@ -109,7 +109,7 @@ test("media generation exposes three independent global concurrency controls", (
   }
   assert.doesNotMatch(pageSource, /单盘预览并发|封面与预览总并发|PREVIEW_CONCURRENCY_OPTIONS/);
   assert.match(pageSource, /GENERATION_CONCURRENCY_OPTIONS\.map/);
-  assert.match(configYamlSource, /integerSettingEdits/);
+  assert.match(configYamlSource, /\["thumbnailConcurrency", "generation", "thumbnail_concurrency"\]/);
   assert.match(adminCss, /\.admin-config-picker-field--concurrency\s*\{/);
 });
 
@@ -171,7 +171,7 @@ test("nightly schedule enable switch inverts the disabled flag in the shared YAM
   assert.doesNotMatch(pageSource, /visualDirtyFields\.has\("nightlyDisabled"\)/);
   assert.match(configYamlSource, /nightlyDisabled: boolean/);
   assert.match(configYamlSource, /\["nightly", "disabled"\]/);
-  assert.match(configYamlSource, /nightlyDisabledEdits/);
+  assert.match(configYamlSource, /\["nightlyDisabled", "nightly", "disabled"\]/);
   assert.match(apiSource, /settings: Schemas\["configLiveSettings"\]/);
   assert.match(apiSource, /configLiveSettings: \{[^}]*nightlyDisabled: boolean/);
 });

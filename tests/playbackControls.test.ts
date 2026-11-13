@@ -977,3 +977,89 @@ test("original playback labels show the observed Quark resolver and update when 
   assert.equal(setting.selector?.find((item) => item.value === "original")?.html, "原画播放（下载接口）");
   assert.equal(playbackSourceState(video)?.mode, "auto");
 });
+
+test("the error overlay lives inside the player element so it follows fullscreen", async () => {
+  window.fetch = (async () => new Response(JSON.stringify({ code: "drive_auth_failed", message: "网盘授权已失效" }), {
+    status: 424, headers: { "Content-Type": "application/json" },
+  })) as typeof fetch;
+  const view = render(createElement(VideoPlayer, { src: "/p/stream/drive/file", playbackUrl: "/api/video/one/playback", title: "Example", poster: "" }));
+  await settle();
+  const video = view.container.querySelector("video")!;
+  const art = Artplayer.instances.find((instance) => instance.video === video)!;
+  const alert = view.getByRole("alert");
+  assert.ok(art.template.$player.contains(alert));
+  assert.ok(art.template.$player.contains(view.getByRole("button", { name: "重新获取" })));
+});
+
+test("poster and title changes update the player in place without rebuilding playback", async () => {
+  const view = render(createElement(VideoPlayer, { src: "/sample.mp4", poster: "/first.jpg", title: "First" }));
+  const art = Artplayer.instances.at(-1)!;
+  const instances = Artplayer.instances.length;
+  view.rerender(createElement(VideoPlayer, { src: "/sample.mp4", poster: "/second.jpg", title: "Second" }));
+  await settle();
+  assert.equal(Artplayer.instances.length, instances);
+  assert.equal(art.isDestroy, false);
+  assert.match(art.template.$poster.style.backgroundImage, /second\.jpg/);
+  assert.equal(art.video.getAttribute("aria-label"), "Second");
+});
+
+test("a typed iOS MP4 source failure reaches ArtPlayer as a single media error", async (t) => {
+  Object.defineProperty(window.navigator, "userAgent", { configurable: true, get: () => "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)" });
+  // jsdom has no MediaError; the overlay maps its codes to messages.
+  Object.defineProperty(globalThis, "MediaError", { configurable: true, value: { MEDIA_ERR_ABORTED: 1, MEDIA_ERR_NETWORK: 2, MEDIA_ERR_DECODE: 3, MEDIA_ERR_SRC_NOT_SUPPORTED: 4 } });
+  t.after(() => {
+    delete (window.navigator as { userAgent?: string }).userAgent;
+    delete (globalThis as { MediaError?: unknown }).MediaError;
+  });
+  window.fetch = (async () => new Response(null, { status: 206 })) as typeof fetch;
+  const view = render(createElement(VideoPlayer, { src: "/sample.mp4", poster: "", title: "iOS", preferTypedMp4SourceOnIOS: true }));
+  const video = view.container.querySelector("video")!;
+  const art = Artplayer.instances.find((instance) => instance.video === video)!;
+  const emit = t.mock.method(art, "emit");
+  const source = video.querySelector("source");
+  assert.ok(source);
+  await act(async () => { source.dispatchEvent(new Event("error")); });
+  const mediaErrors = emit.mock.calls.filter((call) => call.arguments[0] === "video:error");
+  assert.equal(mediaErrors.length, 1);
+  assert.ok(view.getByRole("alert"));
+});
+
+test("a failed subtitle switch turns subtitles back off in the menu", async () => {
+  const subtitle = { name: "中文.vtt", label: "中文", ext: "vtt", type: "vtt" as const, url: "/sub.vtt", source: "drive" };
+  const view = render(createElement(VideoPlayer, { src: "/sample.mp4", poster: "", title: "Subtitles", loadSubtitles: async () => [subtitle] }));
+  const video = view.container.querySelector("video")!;
+  const art = Artplayer.instances.find((instance) => instance.video === video)!;
+  (art.subtitle as { switch: () => Promise<never> }).switch = async () => { throw new Error("subtitle unavailable"); };
+  await settle(); // ArtPlayer binds setting `mounted` hooks on a timer.
+  art.setting.show = true;
+  await act(async () => { art.setting.find("online-subtitle")!.$item.click(); });
+  await settle();
+  const option = art.template.$setting.querySelector<HTMLElement>('[data-name="online-subtitle-option-0"]');
+  assert.ok(option);
+  await act(async () => { option.click(); });
+  await settle();
+  const setting = art.setting.find("online-subtitle")!;
+  assert.equal(setting.tooltip, "关闭");
+  assert.equal((art.subtitle as { show: boolean }).show, false);
+  assert.equal(setting.selector?.find((item) => item.value === "off")?.default, true);
+});
+
+test("rendition labels from the server are escaped in the quality tooltip", async () => {
+  const original = { id: "original", label: "原画播放", kind: "original", protocol: "file", status: "ready", url: "/p/stream/drive/file", mediaType: "video/mp4" };
+  const cloud = { id: "cloud", label: "兼容播放", kind: "transcoded", protocol: "hls", status: "unknown", resolveUrl: "/api/video/one/playback?source=cloud" };
+  const high = { ...cloud, id: "cloud-high", label: "<img src=x onerror=alert(1)>", status: "ready", url: "/p/hls/high/index.m3u8" };
+  const low = { ...cloud, id: "cloud-low", label: "流畅", status: "ready", url: "/p/hls/low/index.m3u8" };
+  window.fetch = (async (path) => {
+    const url = new URL(String(path));
+    if (url.pathname.startsWith("/p/")) return new Response(null, { status: 206 });
+    return new Response(JSON.stringify({ sources: url.searchParams.has("source") ? [original, high, low] : [original, cloud] }), { status: 200 });
+  }) as typeof fetch;
+  const view = render(createElement(VideoPlayer, { src: original.url, playbackUrl: "/api/video/one/playback", title: "Example", poster: "" }));
+  await settle();
+  const video = view.container.querySelector("video")!;
+  const art = Artplayer.instances.find((instance) => instance.video === video)!;
+  await act(async () => { selectPlaybackMode(video, "compatible"); });
+  await settle();
+  assert.equal(art.template.$setting.querySelector("img"), null);
+  assert.match(art.setting.find("playback-rendition")!.tooltip!, /&lt;img/);
+});

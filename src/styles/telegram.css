@@ -68,7 +68,7 @@
 .tg-setting-group h3 {
   color: var(--text-strong);
   font-size: 14px;
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   margin: 0;
 }
 .tg-panel h3 {
@@ -100,7 +100,7 @@
 }
 .tg-enable-row label {
   font-size: 14px;
-  font-weight: 500;
+  font-weight: var(--weight-medium);
   cursor: pointer;
 }
 .tg-enable-row .tg-note {
@@ -112,18 +112,6 @@
 }
 .tg-setting-group + .tg-setting-group {
   margin-top: 24px;
-}
-.tg-text-link {
-  color: var(--text-muted);
-  font-size: 12px;
-  line-height: 1.6;
-  text-decoration: none;
-}
-@media (hover: hover) and (pointer: fine) {
-  .tg-text-link:hover {
-    color: var(--text-strong);
-    text-decoration: underline;
-  }
 }
 .tg-fields {
   display: grid;
@@ -319,7 +307,7 @@
   margin: 0;
   color: var(--text-default);
   font-size: 14px;
-  font-weight: 500;
+  font-weight: var(--weight-medium);
   line-height: 1.6;
   overflow-wrap: anywhere;
 }
@@ -356,12 +344,7 @@
   font-size: 12px;
 }
 .tg-spin {
-  animation: tg-spin 1s linear infinite;
-}
-@keyframes tg-spin {
-  to {
-    transform: rotate(360deg);
-  }
+  animation: spin 1s linear infinite;
 }
 @media (min-width: 1200px) {
   .tg-overview {
@@ -436,6 +419,11 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .tg-spin {
+    animation: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tg-job-status::before {
     animation: none;
   }
 }

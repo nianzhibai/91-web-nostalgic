@@ -36,10 +36,11 @@ const dataSource = readFileSync(
   new URL("../node_modules/@91/client/src/videos.ts", import.meta.url),
   "utf8"
 );
-const stylesSource = readFileSync(
-  new URL("../src/styles/video-detail.css", import.meta.url),
-  "utf8"
-);
+const detailStylesSource = readFileSync(new URL("../src/styles/video-detail.css", import.meta.url), "utf8");
+const stylesSource = [
+  detailStylesSource,
+  readFileSync(new URL("../src/styles/video-collection.css", import.meta.url), "utf8"),
+].join("\n");
 
 test("video detail renders a directory collection only when it has siblings", () => {
   assert.match(
@@ -248,7 +249,7 @@ test("desktop and mobile collections request previews and share preview behavior
   );
   assert.match(
     componentSource,
-    /className="vd-collection-item__thumb"[\s\S]*?onPointerEnter=\{handlePointerEnter\}[\s\S]*?onTouchStart=\{startPreview\}/
+    /className="vd-collection-item__thumb"[\s\S]*?onPointerEnter=\{handlePointerEnter\}[\s\S]*?\{\.\.\.touchPreviewHandlers\}/
   );
   assert.match(
     componentSource,
@@ -282,7 +283,7 @@ test("desktop collection loading state renders six skeleton cards", () => {
   );
   assert.match(
     stylesSource,
-    /\.vd-rail__loading-thumb\s*\{[^}]*animation:\s*vd-shimmer/
+    /\.vd-rail__loading-thumb\s*\{[^}]*animation:\s*shimmer\s/
   );
 });
 
@@ -638,8 +639,8 @@ test("detail, collection, and info cards use a compact mobile stack", () => {
 });
 
 test("mobile recommendations use one layout gap without stacked top spacing", () => {
-  const mobileStyles = stylesSource.slice(
-    stylesSource.lastIndexOf("@media (max-width: 768px)")
+  const mobileStyles = detailStylesSource.slice(
+    detailStylesSource.lastIndexOf("@media (max-width: 768px)")
   );
   assert.match(
     mobileStyles,

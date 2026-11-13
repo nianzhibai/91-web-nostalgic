@@ -44,6 +44,65 @@ export function getPreloadAheadCount(activeReadyForPreload: boolean): number {
   return activeReadyForPreload ? PRELOAD_AHEAD_COUNT : 0;
 }
 
+export type SlideMediaPlan = {
+  /** 挂载真实 <video> 壳（否则只画海报）。 */
+  shouldMount: boolean;
+  /** 绑定 src。 */
+  shouldLoad: boolean;
+  /** preload="auto"；否则只取 metadata。 */
+  shouldEagerLoad: boolean;
+  /** 已有可复用缓冲而保留 src（不是为了当前播放或预载）。 */
+  shouldRetainCached: boolean;
+};
+
+/**
+ * 一屏的媒体安排（iOS 共享 video 分支只有当前屏有自己的媒体）。
+ *
+ * - 下一屏始终绑定 src，至少用 metadata 做轻量准备。
+ * - 当前屏缓冲健康时，向后 PRELOAD_AHEAD_COUNT 条用 preload="auto" 全速拉取。
+ * - 已经产生过缓冲的视频保留 src：缓存窗口内来回切换直接复用；前方预载
+ *   窗口里的也一样——当前屏卡顿收回预载授权时只降级 preload，不卸载
+ *   `<video>`、不丢弃已下载的数据。
+ */
+export function planSlideMedia(input: {
+  /** 这一屏相对当前屏的偏移，0 即当前屏。 */
+  offset: number;
+  inCacheWindow: boolean;
+  activeReadyForPreload: boolean;
+  /** 浏览器里已有这条视频可复用的缓冲。 */
+  cached: boolean;
+  /** 走自适应流（HLS），只预载紧邻的下一条。 */
+  hasPlaybackUrl: boolean;
+  usesSharedVideo: boolean;
+}): SlideMediaPlan {
+  const isActive = input.offset === 0;
+  if (input.usesSharedVideo) {
+    return {
+      shouldMount: isActive,
+      shouldLoad: isActive,
+      shouldEagerLoad: isActive,
+      shouldRetainCached: false,
+    };
+  }
+  const ahead = input.offset > 0;
+  const prepareNext = input.offset === 1;
+  const preload =
+    ahead &&
+    (!input.hasPlaybackUrl || prepareNext) &&
+    input.offset <= getPreloadAheadCount(input.activeReadyForPreload);
+  const retainCached =
+    !isActive &&
+    input.cached &&
+    (input.inCacheWindow || (ahead && input.offset <= PRELOAD_AHEAD_COUNT));
+  return {
+    shouldMount:
+      isActive || input.inCacheWindow || prepareNext || preload || retainCached,
+    shouldLoad: isActive || prepareNext || preload || retainCached,
+    shouldEagerLoad: isActive || preload,
+    shouldRetainCached: retainCached,
+  };
+}
+
 /** shouldWarmFirstFrame 的输入切面；HTMLVideoElement 天然满足前两项。 */
 export type FirstFrameWarmProbe = {
   isActive: boolean;

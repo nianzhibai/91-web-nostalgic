@@ -8,7 +8,6 @@ type ResourceOptions<T> = {
   retryOnError?: boolean;
   maxRetries?: number;
   initialData: T;
-  onUnauthorized?: () => void;
 };
 
 export function useAdminResource<T>(load: (signal: AbortSignal) => Promise<T>, options: ResourceOptions<T>) {
@@ -34,9 +33,5 @@ export function useAdminResource<T>(load: (signal: AbortSignal) => Promise<T>, o
       window.removeEventListener("focus", resume);
     };
   }, [resource, options.active]);
-  useEffect(() => {
-    if (state.unauthorized) options.onUnauthorized?.();
-  }, [state.unauthorized, options.onUnauthorized]);
-
   return { ...state, refresh: resource.refresh, invalidate: resource.invalidate, setData: resource.setData };
 }

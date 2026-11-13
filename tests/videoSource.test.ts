@@ -73,8 +73,10 @@ class FakeHls {
   static Events = { ERROR: "error" };
   handler!: (_event: string, data: { fatal: boolean; type?: string; response?: { code: number; url?: string } }) => void;
   destroyed = false;
+  mediaRecoveries = 0;
   url = "";
   constructor(public config: Record<string, unknown>) { FakeHls.instances.push(this); }
+  recoverMediaError() { this.mediaRecoveries++; }
   on(_event: string, handler: FakeHls["handler"]) { this.handler = handler; }
   loadSource(url: string) { this.url = url; }
   attachMedia() {}
@@ -595,6 +597,12 @@ test("network recovery refreshes each source once and never cycles back to faile
   assert.equal(playbackSourceState(video)?.activeSource?.id, "cloud");
   FakeHls.instances[0].fail("mediaError");
   await settle();
+  // hls.js gets one in-place media recovery before the source is rejected.
+  assert.equal(FakeHls.instances[0].mediaRecoveries, 1);
+  assert.equal(playbackSourceError(video), null);
+  FakeHls.instances[0].fail("mediaError");
+  await settle();
+  assert.equal(FakeHls.instances[0].mediaRecoveries, 1);
   assert.ok(playbackSourceError(video));
   assert.equal(urls.filter((url) => url.searchParams.get("source") === "original").length, 1);
 });
@@ -1334,6 +1342,30 @@ test("late original-source information cannot relabel a different active source"
   assert.equal(playbackSourceState(video)?.activeSource?.id, "cloud");
   assert.equal(playbackStateLabel(playbackSourceState(video)), "兼容播放");
   assert.equal(playbackSourceState(video)?.activeSource?.urlSource, undefined);
+});
+
+test("a burst of seeks keeps one source-information request in flight plus one follow-up", async () => {
+  const video = media();
+  const tracked = { ...original, sourceInfoUrl: "/api/video/one/playback?source=original&playbackId=burst" };
+  const pending: ((response: Response) => void)[] = [];
+  attachVideoSource(video, original.url!, "/api/video/one/playback", {
+    fetch: (async (path) => new URL(String(path)).searchParams.has("playbackId")
+      ? new Promise<Response>((resolve) => { pending.push(resolve); })
+      : manifest(tracked)) as typeof fetch,
+  });
+  await settle();
+  video.dispatchEvent(new Event("loadedmetadata"));
+  for (let index = 0; index < 5; index++) video.dispatchEvent(new Event("seeked"));
+  video.dispatchEvent(new Event("playing"));
+  await settle();
+  assert.equal(pending.length, 1);
+  pending[0](manifest({ ...tracked, urlSource: "quark-raw" }));
+  await settle(); await settle();
+  assert.equal(pending.length, 2);
+  pending[1](manifest({ ...tracked, urlSource: "quark-download" }));
+  await settle(); await settle();
+  assert.equal(pending.length, 2);
+  assert.equal(playbackSourceState(video)?.activeSource?.urlSource, "quark-download");
 });
 
 test("source information never sends credentials to a foreign origin", async () => {

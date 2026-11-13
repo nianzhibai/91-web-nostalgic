@@ -50,6 +50,9 @@ export type InfiniteListingAction =
       exhausted: boolean;
       receivedAt: number;
     }
+  /** Restart from a fresh snapshot while the current items stay on screen. */
+  | { type: "rebuild"; requestID: number }
+  | { type: "page-size"; pageSize: number }
   | { type: "load-start"; requestID: number }
   | {
       type: "load-success";
@@ -151,6 +154,18 @@ export function infiniteListingReducer(
         error: null,
         receivedAt: action.receivedAt,
       };
+    case "rebuild":
+      return {
+        ...state,
+        requestID: action.requestID,
+        feedToken: "",
+        requestedCount: 0,
+        exhausted: false,
+      };
+    case "page-size":
+      return action.pageSize === state.pageSize
+        ? state
+        : { ...state, pageSize: action.pageSize };
     case "load-start":
       return {
         ...state,
@@ -166,7 +181,11 @@ export function infiniteListingReducer(
       ) {
         return state;
       }
-      const items = appendUniqueVideos(state.items, action.items);
+      // Position 0 starts a snapshot, so its items replace anything still shown
+      // from a previous (expired) snapshot instead of being appended to it.
+      const items = action.requestCursor.position === 0
+        ? appendUniqueVideos([], action.items)
+        : appendUniqueVideos(state.items, action.items);
       return {
         ...state,
         items,
@@ -195,12 +214,16 @@ export function nextListingRequest(
 ): InfiniteListingRequest | null {
   if (state.exhausted) return null;
   if (!Number.isInteger(state.pageSize) || state.pageSize <= 0) return null;
+  // Rebuilding a snapshot behind visible items refills them in one request.
+  const size = state.requestedCount === 0
+    ? Math.max(state.pageSize, state.items.length)
+    : state.pageSize;
   return {
     cursor: {
       feedToken: state.feedToken,
       position: state.requestedCount,
     },
-    size: state.pageSize,
+    size,
   };
 }
 

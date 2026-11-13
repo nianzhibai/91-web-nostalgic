@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { clamp } from "./mediaBuffer";
 import { classifyTouchSeekIntent } from "./slideGestures";
 import { isShortsSystemGestureStart } from "./gestureBoundary";
@@ -41,8 +41,9 @@ import {
  * 切走时会丢），也让队列裁剪的坐标平移天然连续。它**不**改变视频切换时机——
  * 活跃屏仍由 IntersectionObserver 按视觉位置判定，详见 settleTo 的注释。
  *
- * 页面其余部分因此完全不用改：判活跃屏、长会话队列裁剪重贴、键盘
- * `scrollIntoView`、隐藏视频后跳下一条，全都仍然建立在 `scrollTop` 几何上。
+ * 页面其余部分因此完全不用改：判活跃屏、长会话队列裁剪重贴仍然建立在
+ * `scrollTop` 几何上。键盘 ↑/↓、翻页按钮、连播和隐藏后跳下一条这些程序化
+ * 翻页也走这里的 `goTo`，与滚轮共用同一条落点动画和 settling 守卫。
  */
 
 /** 位移不足这个值一律当误触，回弹到当前视频。 */
@@ -498,7 +499,7 @@ export function createShortsSwipePager(host: ShortsSwipePagerHost) {
   const settleTo = (
     target: HTMLElement | null,
     committed: boolean,
-    source: "pointer" | "wheel" = "pointer"
+    source: "pointer" | "step" = "pointer"
   ) => {
     detachSettleListeners();
     settling = false;
@@ -515,14 +516,14 @@ export function createShortsSwipePager(host: ShortsSwipePagerHost) {
     // 浏览器可能夹取实际落点，按真正生效的值算补偿量，画面才不会跳。
     const compensation = live + (getScrollTop() - from);
 
-    const duration = source === "wheel" && Math.abs(compensation) >= 1
+    const duration = source === "step" && Math.abs(compensation) >= 1
       ? SHORTS_WHEEL_SETTLE_MS
       : resolveShortsPagerSettleDuration({
           remainingPx: compensation,
           viewportHeight: getViewportHeight(),
           committed,
         });
-    const easing = source === "wheel"
+    const easing = source === "step"
       ? SHORTS_WHEEL_SETTLE_EASING
       : SHORTS_PAGER_SETTLE_EASING;
     if (duration <= 0) {
@@ -821,19 +822,27 @@ export function createShortsSwipePager(host: ShortsSwipePagerHost) {
   };
 
   /**
-   * 把当前屏推进 / 退回一屏。滚轮等待整段动画完成，避免反复打断后
-   * 从不同的中间位置起步，造成每条视频的移动距离和观感速度不一致。
+   * 程序化翻到指定 slide（键盘、翻页按钮、连播、隐藏后跳下一条）。和滚轮
+   * 一样等待整段动画完成，避免反复打断后从不同的中间位置起步，造成每条
+   * 视频的移动距离和观感速度不一致。返回是否真的开始了翻页。
    */
+  const goTo = (target: HTMLElement) => {
+    if (drag || settling || !target.isConnected) return false;
+    settleTo(target, true, "step");
+    return true;
+  };
+
+  /** 把当前屏推进 / 退回一屏。 */
   const stepBy = (direction: 1 | -1) => {
-    if (drag || settling) return;
+    if (drag || settling) return false;
     const slides = readSlides();
-    if (slides.length === 0) return;
+    if (slides.length === 0) return false;
     const slideTops = readSlideTops();
     const index = findNearestShortsSlideIndex(slideTops, getEffectiveTop());
-    if (index < 0) return;
+    if (index < 0) return false;
     const target = clamp(index + direction, 0, slides.length - 1);
-    if (target === index) return;
-    settleTo(slides[target] ?? null, true, "wheel");
+    if (target === index) return false;
+    return goTo(slides[target]);
   };
 
   let wheelState = INITIAL_SHORTS_WHEEL_STATE;
@@ -908,8 +917,9 @@ export function createShortsSwipePager(host: ShortsSwipePagerHost) {
   };
 
   // ---- 视口尺寸变化后重新对齐 ----
-  // 接管手势的同时关掉了 scroll-snap，浏览器不会再在旋转 / 键盘弹出后
-  // 自动把当前屏拉回吸附点，这里补上。
+  // 接管手势的同时关掉了 scroll-snap，浏览器不会再在旋转 / 键盘弹出 /
+  // 进出全屏后自动把当前屏拉回吸附点，这里补上。退出全屏还可能恢复进入前
+  // 的文档滚动位置，同样由这里按当前屏重新对齐。
   let realignFrame: number | null = null;
   let realignTimer: number | null = null;
   const realign = () => {
@@ -945,9 +955,11 @@ export function createShortsSwipePager(host: ShortsSwipePagerHost) {
   root.addEventListener("pointercancel", handlePointerCancel);
   window.addEventListener("resize", handleViewportResize);
   window.addEventListener("orientationchange", handleViewportResize);
+  document.addEventListener("fullscreenchange", handleViewportResize);
+  document.addEventListener("webkitfullscreenchange", handleViewportResize);
   window.addEventListener("blur", handleBlur);
 
-  return () => {
+  const destroy = () => {
     // 落点动画进行中时位置早已提交，直接清干净即可；只有拖到一半被卸载
     // （手指还按着）才需要把跟手位移落回 scrollTop。
     if (settling) {
@@ -973,9 +985,15 @@ export function createShortsSwipePager(host: ShortsSwipePagerHost) {
     root.removeEventListener("pointercancel", handlePointerCancel);
     window.removeEventListener("resize", handleViewportResize);
     window.removeEventListener("orientationchange", handleViewportResize);
+    document.removeEventListener("fullscreenchange", handleViewportResize);
+    document.removeEventListener("webkitfullscreenchange", handleViewportResize);
     window.removeEventListener("blur", handleBlur);
   };
+
+  return { destroy, goTo };
 }
+
+export type ShortsSwipePager = ReturnType<typeof createShortsSwipePager>;
 
 export type ShortsSwipePagerOptions = {
   /** 更换队列时取消旧队列的手势与动画。 */
@@ -989,10 +1007,16 @@ export type ShortsSwipePagerOptions = {
   onGestureActiveChange?: (active: boolean, endReason?: ShortsPagerGestureEnd) => void;
 };
 
-/** React 侧只负责生命周期；判定和动画全在 createShortsSwipePager 里。 */
+/**
+ * React 侧只负责生命周期；判定和动画全在 createShortsSwipePager 里。
+ *
+ * 返回稳定的 `goToSlide`：所有程序化翻页都经由它。翻页器关闭时
+ * （`?shortsPager=0` 回到原生 scroll-snap）退回浏览器的平滑滚动。
+ */
 export function useShortsSwipePager(options: ShortsSwipePagerOptions) {
   const optionsRef = useRef(options);
   optionsRef.current = options;
+  const pagerRef = useRef<ShortsSwipePager | null>(null);
 
   const { enabled, usesDocumentScroll, resetKey } = options;
 
@@ -1001,7 +1025,7 @@ export function useShortsSwipePager(options: ShortsSwipePagerOptions) {
     const root = optionsRef.current.containerRef.current;
     const track = optionsRef.current.trackRef.current;
     if (!root || !track) return;
-    return createShortsSwipePager({
+    const pager = createShortsSwipePager({
       root,
       track,
       usesDocumentScroll,
@@ -1010,5 +1034,21 @@ export function useShortsSwipePager(options: ShortsSwipePagerOptions) {
       onGestureActiveChange: (active, endReason) =>
         optionsRef.current.onGestureActiveChange?.(active, endReason),
     });
+    pagerRef.current = pager;
+    return () => {
+      pagerRef.current = null;
+      pager.destroy();
+    };
   }, [enabled, usesDocumentScroll, resetKey]);
+
+  const goToSlide = useCallback((slide: HTMLElement) => {
+    const pager = pagerRef.current;
+    if (pager) {
+      pager.goTo(slide);
+    } else {
+      slide.scrollIntoView({ behavior: "smooth" });
+    }
+  }, []);
+
+  return { goToSlide };
 }

@@ -38,12 +38,12 @@ import { useAdminFloatingActionSpace } from "./useAdminFloatingActionSpace";
 import { useAdminRouteActive } from "./AdminRouteCache";
 import { useAdminPaginationSync } from "./useAdminPaginationSync";
 import { useAdminResource } from "./useAdminResource";
-import { useAuth } from "./AuthContext";
 import { useTelegramAvailability } from "./telegram/useTelegramAvailability";
 import { SearchPanel } from "@/components/SearchPanel";
 import { FilterAllIcon } from "@/components/icons/FilterAllIcon";
 import { LocalStorageIcon } from "@/components/icons/LocalStorageIcon";
 import { TelegramIcon } from "@/components/icons/TelegramIcon";
+import { ResourceErrorBanners } from "./ResourceErrorBanners";
 
 const DESKTOP_CURRENT_VIDEOS_PAGE_SIZE = 16;
 const MOBILE_CURRENT_VIDEOS_PAGE_SIZE = 10;
@@ -86,20 +86,19 @@ export function VideosPage() {
   const floatingActionPageRef = useAdminFloatingActionSpace<HTMLElement>();
   const [searchParams, setSearchParams] = useSearchParams();
   const routeActive = useAdminRouteActive();
-  const { invalidateSession } = useAuth();
   const { enabled: telegramEnabled } = useTelegramAvailability();
   const driveResource = useAdminResource(api.listDrives, {
-    queryKey: "video-drives", active: routeActive, intervalMs: null, initialData: [], onUnauthorized: invalidateSession,
+    queryKey: "video-drives", active: routeActive, intervalMs: null, initialData: [],
   });
   const crawlerResource = useAdminResource(api.listCrawlers, {
-    queryKey: "video-crawlers", active: routeActive, intervalMs: null, initialData: [], onUnauthorized: invalidateSession,
+    queryKey: "video-crawlers", active: routeActive, intervalMs: null, initialData: [],
   });
   const localResource = useAdminResource<api.AdminVideoList | null>(
     (signal) => api.listVideos({ driveId: LOCAL_UPLOAD_SOURCE_ID, page: 1, size: 1 }, signal),
-    { queryKey: "local-video-source", active: routeActive, intervalMs: null, initialData: null, onUnauthorized: invalidateSession });
+    { queryKey: "local-video-source", active: routeActive, intervalMs: null, initialData: null });
   const telegramResource = useAdminResource<api.AdminVideoList | null>(
     (signal) => api.listVideos({ sourceKind: "telegram", page: 1, size: 1 }, signal),
-    { queryKey: "telegram-video-source", active: routeActive, intervalMs: null, initialData: null, onUnauthorized: invalidateSession });
+    { queryKey: "telegram-video-source", active: routeActive, intervalMs: null, initialData: null });
   const drives = driveResource.data;
   const crawlers = crawlerResource.data;
   const hasLocalUploads = (localResource.data?.total ?? 0) > 0;
@@ -151,12 +150,9 @@ export function VideosPage() {
       ref={floatingActionPageRef}
       className="admin-page admin-page--with-floating-actions admin-videos-page"
     >
-      {[driveResource, crawlerResource, localResource, telegramResource].map((resource, index) => resource.error && (
-        <div className="admin-detail-error" role="alert" key={index}>
-          来源信息更新失败：{resource.error}
-          <button type="button" className="admin-btn" onClick={() => void resource.refresh()}>重试</button>
-        </div>
-      ))}
+      <ResourceErrorBanners failures={[driveResource, crawlerResource, localResource, telegramResource].map((resource) => (
+        { label: "来源信息更新失败", error: resource.error, retry: resource.refresh }
+      ))} />
       <VideoSourceNavigation
         drives={drives}
         crawlers={crawlers}
@@ -346,7 +342,6 @@ function CurrentVideosTab({
   setPage: PageSetter;
 }) {
   const routeActive = useAdminRouteActive();
-  const { invalidateSession } = useAuth();
   const [searchKeyword, setSearchKeyword] = useState("");
   const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false);
   const [draftFilters, setDraftFilters] = useState<VideoAdvancedFilterValues>(() => ({ ...EMPTY_VIDEO_FILTERS }));
@@ -379,12 +374,12 @@ function CurrentVideosTab({
     page, size: pageSize, keyword: searchKeyword, driveId: sourceDriveId,
     crawlerId: sourceCrawlerId, sourceKind, ...appliedFilters,
   }, signal), {
-    queryKey: activeListQueryKey, active: routeActive, initialData: null, onUnauthorized: invalidateSession,
+    queryKey: activeListQueryKey, active: routeActive, initialData: null,
     intervalMs: (data) => trackedRegenCount > 0 || data?.items?.some((video) => video.previewStatus === REGEN_PREVIEW_STATUS)
       ? REGEN_PREVIEW_POLL_INTERVAL_MS : null,
   });
   const tagResource = useAdminResource(api.listTags, {
-    queryKey: "video-tags", active: routeActive, intervalMs: null, initialData: [], onUnauthorized: invalidateSession,
+    queryKey: "video-tags", active: routeActive, intervalMs: null, initialData: [],
   });
   const list = videos.data?.items ?? [];
   const previousResult = useRef<{ data: api.AdminVideoList; page: number } | null>(null);
@@ -603,15 +598,10 @@ function CurrentVideosTab({
 
   return (
     <div className={`admin-videos-current${selectedIds.size > 0 ? " has-bulk-actions" : ""}`}>
-      {[
-        { title: "视频列表", resource: videos, visible: videos.ready },
-        { title: "标签", resource: tagResource, visible: true },
-      ].map(({ title, resource, visible }) => visible && resource.error && (
-        <div className="admin-detail-error" role="alert" key={title}>
-          {title}加载失败：{resource.error}
-          <button type="button" className="admin-btn" onClick={() => void resource.refresh()}>重试</button>
-        </div>
-      ))}
+      <ResourceErrorBanners failures={[
+        { label: "视频列表加载失败", error: videos.ready && videos.error, retry: videos.refresh },
+        { label: "标签加载失败", error: tagResource.error, retry: tagResource.refresh },
+      ]} />
       <div className="admin-page__actions admin-videos-filter admin-videos-filter--current">
         <SearchBox keyword={searchKeyword} onSearch={handleSearch} loading={listQueryPending} />
         <div className="admin-videos-filter__current-actions">
@@ -765,10 +755,8 @@ function CurrentVideosTab({
         modalClassName="admin-modal--delete-confirm admin-modal--video-delete-flat"
         loading={deleting}
         onCancel={() => {
-          if (!deleting) {
-            setDeleteTarget(null);
-            setDeleteSource(false);
-          }
+          setDeleteTarget(null);
+          setDeleteSource(false);
         }}
         onConfirm={confirmDeleteVideo}
       >
@@ -785,10 +773,8 @@ function CurrentVideosTab({
         modalClassName="admin-modal--delete-confirm admin-modal--video-delete-flat"
         loading={batchDeleting}
         onCancel={() => {
-          if (!batchDeleting) {
-            setBatchDeleteOpen(false);
-            setBatchDeleteSource(false);
-          }
+          setBatchDeleteOpen(false);
+          setBatchDeleteSource(false);
         }}
         onConfirm={confirmBatchDelete}
       >
@@ -810,7 +796,6 @@ function BlacklistTab({
   setPage: PageSetter;
 }) {
   const routeActive = useAdminRouteActive();
-  const { invalidateSession } = useAuth();
   const [searchKeyword, setSearchKeyword] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [removeTarget, setRemoveTarget] = useState<api.AdminDeletedVideo | null>(null);
@@ -827,9 +812,9 @@ function BlacklistTab({
   const activeListQueryKey = JSON.stringify([page, pageSize, searchKeyword]);
   const blacklist = useAdminResource<api.AdminBlacklistList | null>(
     (signal) => api.listBlacklist({ page, size: pageSize, keyword: searchKeyword }, signal),
-    { queryKey: activeListQueryKey, active: routeActive, intervalMs: null, initialData: null, onUnauthorized: invalidateSession });
+    { queryKey: activeListQueryKey, active: routeActive, intervalMs: null, initialData: null });
   const sourceDelete = useAdminResource<api.BlacklistSourceDeleteStatus | null>(api.getBlacklistSourceDeleteStatus, {
-    queryKey: "blacklist-source-delete", active: routeActive, initialData: null, onUnauthorized: invalidateSession,
+    queryKey: "blacklist-source-delete", active: routeActive, initialData: null,
     intervalMs: (status) => status?.running ? 2000 : null,
   });
   const { data: sourceDeleteStatus, setData: setSourceDeleteStatus } = sourceDelete;
@@ -1000,12 +985,10 @@ function BlacklistTab({
 
   return (
     <div className={`admin-videos-blacklist${selectedIds.size > 0 ? " has-bulk-actions" : ""}`}>
-      {[blacklist, sourceDelete].map((resource, index) => resource.error && (resource.ready || index === 1) && (
-        <div className="admin-detail-error" role="alert" key={index}>
-          数据更新失败：{resource.error}
-          <button type="button" className="admin-btn" onClick={() => void resource.refresh()}>重试</button>
-        </div>
-      ))}
+      <ResourceErrorBanners failures={[
+        { label: "数据更新失败", error: blacklist.ready && blacklist.error, retry: blacklist.refresh },
+        { label: "数据更新失败", error: sourceDelete.error, retry: sourceDelete.refresh },
+      ]} />
       <div className="admin-page__actions admin-videos-filter admin-videos-filter--blacklist">
         <SearchBox keyword={searchKeyword} onSearch={handleSearch} loading={listQueryPending} />
         {hasBlacklistActions && (
@@ -1186,9 +1169,7 @@ function BlacklistTab({
         centerMessage
         modalClassName="admin-modal--delete-confirm admin-modal--source-delete-flat"
         loading={sourceDeleteStarting}
-        onCancel={() => {
-          if (!sourceDeleteStarting) setSourceDeleteOpen(false);
-        }}
+        onCancel={() => setSourceDeleteOpen(false)}
         onConfirm={confirmSourceDeleteAll}
       />
 
@@ -1202,9 +1183,7 @@ function BlacklistTab({
         centerMessage
         modalClassName="admin-modal--delete-confirm admin-modal--source-delete-flat"
         loading={sourceDeleteStarting}
-        onCancel={() => {
-          if (!sourceDeleteStarting) setSourceDeleteTarget(null);
-        }}
+        onCancel={() => setSourceDeleteTarget(null)}
         onConfirm={confirmSourceDeleteTarget}
       />
 
@@ -1218,9 +1197,7 @@ function BlacklistTab({
         centerMessage
         modalClassName="admin-modal--delete-confirm admin-modal--source-delete-flat"
         loading={sourceDeleteStarting}
-        onCancel={() => {
-          if (!sourceDeleteStarting) setBatchSourceDeleteOpen(false);
-        }}
+        onCancel={() => setBatchSourceDeleteOpen(false)}
         onConfirm={confirmBatchSourceDelete}
       />
 
@@ -1235,9 +1212,7 @@ function BlacklistTab({
         confirmText="确认"
         centerMessage
         loading={removing}
-        onCancel={() => {
-          if (!removing) setRemoveTarget(null);
-        }}
+        onCancel={() => setRemoveTarget(null)}
         onConfirm={confirmRemove}
       />
     </div>

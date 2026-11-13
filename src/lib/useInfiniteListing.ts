@@ -211,6 +211,8 @@ export function useInfiniteListing(
         .catch((error) => {
           if (controller.signal.aborted) return;
           if (request.cursor.feedToken && feed.isExpiredError(error)) {
+            // The server dropped this snapshot. Rebuild it from the start while
+            // the loaded items stay visible; the first batch replaces them.
             clearInfiniteListingCache(feed.key);
             if (controllerRef.current === controller) {
               controllerRef.current = null;
@@ -220,12 +222,7 @@ export function useInfiniteListing(
               request.cursor.position + request.size,
               stateRef.current.requestedCount
             );
-            dispatch({
-              type: "reset",
-              requestID: restartID,
-              key: feed.key,
-              pageSize: feed.batchSize,
-            });
+            dispatch({ type: "rebuild", requestID: restartID });
             executeRequest(restartID, feed, {
               cursor: EMPTY_CURSOR,
               size: initialRequestSize(restoreCount, feed.batchSize),
@@ -243,20 +240,30 @@ export function useInfiniteListing(
     []
   );
 
+  // A page-size change (e.g. rotating a phone across a breakpoint) only
+  // affects later batches; it must not refetch the current result set.
+  useEffect(() => {
+    dispatch({ type: "page-size", pageSize: batchSize });
+  }, [batchSize]);
+
   useEffect(() => {
     const requestID = ++nextRequestIDRef.current;
-    controllerRef.current?.abort();
-    controllerRef.current = null;
+    const abortActiveRequest = () => {
+      controllerRef.current?.abort();
+      controllerRef.current = null;
+    };
+    abortActiveRequest();
+    const pageSize = sourceRef.current.batchSize;
 
     if (!enabled) {
-      dispatch({ type: "disable", requestID, key, pageSize: batchSize });
-      return;
+      dispatch({ type: "disable", requestID, key, pageSize });
+      return abortActiveRequest;
     }
 
     const forceFresh = forceFreshRef.current;
     forceFreshRef.current = false;
-    const restoreCount = restoreCountRef.current;
-    const restoreFeedToken = restoreFeedTokenRef.current;
+    const restoreCount = forceFresh ? 0 : restoreCountRef.current;
+    const restoreFeedToken = forceFresh ? "" : restoreFeedTokenRef.current;
     const cached = forceFresh
       ? null
       : readInfiniteListingCache(key, {
@@ -268,7 +275,7 @@ export function useInfiniteListing(
         type: "hydrate",
         requestID,
         key,
-        pageSize: batchSize,
+        pageSize,
         items: cached.items,
         total: cached.total,
         feedToken: cached.feedToken,
@@ -276,29 +283,24 @@ export function useInfiniteListing(
         exhausted: cached.exhausted,
         receivedAt: cached.receivedAt,
       });
-      return;
+      return abortActiveRequest;
     }
 
-    const restoreCursor: VideoFeedCursor = forceFresh
-      ? EMPTY_CURSOR
-      : { feedToken: restoreFeedToken, position: 0 };
+    const restoreCursor: VideoFeedCursor = { feedToken: restoreFeedToken, position: 0 };
     dispatch({
       type: "reset",
       requestID,
       key,
-      pageSize: batchSize,
+      pageSize,
       cursor: restoreCursor,
     });
     sendRequest(requestID, sourceRef.current, {
       cursor: restoreCursor,
-      size: initialRequestSize(restoreCount, batchSize),
+      size: initialRequestSize(restoreCount, pageSize),
     });
 
-    return () => {
-      controllerRef.current?.abort();
-      controllerRef.current = null;
-    };
-  }, [batchSize, enabled, key, reloadVersion, sendRequest]);
+    return abortActiveRequest;
+  }, [enabled, key, reloadVersion, sendRequest]);
 
   useEffect(() => {
     if (!enabled || state.key !== key) return;

@@ -210,7 +210,7 @@ body.shorts-document-scroll::before {
   color: rgba(255, 255, 255, 0.65);
   font: inherit;
   font-size: 16px;
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   line-height: 1;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
   cursor: pointer;
@@ -417,7 +417,7 @@ html.shorts-document-scroll.is-pager-driven body {
 .shorts-page.has-video-transition .shorts-slide__video {
   transform: scale(0.96);
   opacity: 0.5;
-  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 0.6s var(--ease-out), opacity 0.6s var(--ease-out);
 }
 
 .shorts-page.has-video-transition
@@ -451,7 +451,7 @@ html.shorts-document-scroll.is-pager-driven body {
 }
 
 .shorts-page .shorts-slide[data-pinch="returning"] :is(.shorts-slide__video, .shorts-slide__poster) {
-  transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 200ms var(--ease-out);
 }
 
 /* 清屏保留进度条、拖动时间提示和双击点赞动画，视频节点和播放状态不随界面显隐重新创建。
@@ -516,13 +516,7 @@ html.shorts-document-scroll.is-pager-driven body {
   border-top-color: rgba(255, 255, 255, 0.98);
   border-radius: 50%;
   will-change: transform;
-  animation: shorts-spinner-rotate 0.8s linear infinite;
-}
-
-@keyframes shorts-spinner-rotate {
-  to {
-    transform: rotate(360deg);
-  }
+  animation: spin 0.8s linear infinite;
 }
 
 @media (max-width: 640px) {
@@ -594,7 +588,7 @@ html.shorts-document-scroll.is-pager-driven body {
 .shorts-slide__playback-error-title {
   font-size: 16px;
   line-height: 1.35;
-  font-weight: 700;
+  font-weight: var(--weight-bold);
 }
 
 .shorts-slide__processing {
@@ -627,13 +621,13 @@ html.shorts-document-scroll.is-pager-driven body {
 .shorts-slide__playback-retry {
   min-height: 40px;
   padding: 0 16px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 1px solid rgba(255, 255, 255, 0.24);
   background: rgba(255, 255, 255, 0.14);
   color: #fff;
   font: inherit;
   font-size: 13px;
-  font-weight: 650;
+  font-weight: var(--weight-semibold);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -664,18 +658,18 @@ html.shorts-document-scroll.is-pager-driven body {
   left: 50%;
   transform: translateX(-50%);
   padding: 6px 14px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: rgba(0, 0, 0, 0.72);
   border: 1px solid rgba(255, 255, 255, 0.15);
   color: #fff;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: var(--weight-bold);
   letter-spacing: 0.05em;
   pointer-events: none;
   z-index: 10;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  animation: shorts-rate-in 150ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: shorts-rate-in 150ms var(--ease-out) forwards;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   display: flex;
   align-items: center;
@@ -709,7 +703,6 @@ html.shorts-document-scroll.is-pager-driven body {
   }
 }
 
-
 /* ---------- 底部标题覆盖层 ---------- */
 .shorts-slide__overlay {
   position: absolute;
@@ -726,7 +719,7 @@ html.shorts-document-scroll.is-pager-driven body {
   margin: 0;
   font-size: 18px;
   line-height: 1.5;
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   color: #fff;
   text-shadow: 0 1px 4px rgb(0 0 0 / 40%);
   white-space: normal;
@@ -775,7 +768,7 @@ html.shorts-document-scroll.is-pager-driven body {
   justify-content: center;
   color: #fff;
   font-size: 10px;
-  font-weight: 700;
+  font-weight: var(--weight-bold);
   letter-spacing: 0;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
   position: relative;
@@ -922,7 +915,7 @@ html.shorts-document-scroll.is-pager-driven body {
   height: 3px;
   background: rgba(255, 255, 255, 0.22);
   position: relative;
-  border-radius: 99px;
+  border-radius: var(--radius-pill);
   transition: height 0.15s ease, background-color 0.15s ease;
 }
 
@@ -930,7 +923,7 @@ html.shorts-document-scroll.is-pager-driven body {
 .shorts-slide__progress-track::after {
   content: "";
   position: absolute;
-  right: calc(100% - var(--progress-pct, 0%) - 6px);
+  right: calc((1 - var(--progress, 0)) * 100% - 6px);
   top: 50%;
   transform: translateY(-50%) scale(0);
   width: 12px;
@@ -971,9 +964,11 @@ html.shorts-document-scroll.is-pager-driven body {
   bottom: 0;
   /* 使用高颜值渐变（从粉红到蛇金橙），契合主色调，带来极高的高级感 */
   background: linear-gradient(90deg, #ff4060 0%, #ff8030 100%);
-  border-radius: 99px;
-  width: var(--progress-pct, 0%);
-  transition: width 80ms linear;
+  border-radius: var(--radius-pill);
+  width: 100%;
+  transform-origin: left center;
+  transform: scaleX(var(--progress, 0));
+  transition: transform 80ms linear;
 }
 
 .shorts-slide__progress.is-scrubbing .shorts-slide__progress-fill {
@@ -996,7 +991,7 @@ html.shorts-document-scroll.is-pager-driven body {
   background: rgb(0 0 0 / 85%);
   color: #fff;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   font-variant-numeric: tabular-nums;
   line-height: 18px;
   white-space: nowrap;
@@ -1010,19 +1005,19 @@ html.shorts-document-scroll.is-pager-driven body {
   left: 50%;
   transform: translateX(-50%) scale(0.9);
   padding: 6px 14px;
-  border-radius: 99px;
+  border-radius: var(--radius-pill);
   background: rgba(0, 0, 0, 0.82);
   border: 1px solid rgba(255, 255, 255, 0.15);
   color: #fff;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   letter-spacing: 0.05em;
   white-space: nowrap;
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   pointer-events: none;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-  animation: shorts-tooltip-pop 150ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: shorts-tooltip-pop 150ms var(--ease-out) forwards;
 }
 
 .shorts-slide__progress-time {
@@ -1074,7 +1069,7 @@ html.shorts-document-scroll.is-pager-driven body {
 
 .shorts-slide__hidden-title {
   font-size: 20px;
-  font-weight: 700;
+  font-weight: var(--weight-bold);
   letter-spacing: 0.02em;
 }
 
@@ -1089,17 +1084,17 @@ html.shorts-document-scroll.is-pager-driven body {
   background: rgba(0, 0, 0, 0.78);
   border: 1px solid rgba(255, 255, 255, 0.15);
   padding: 8px 16px;
-  border-radius: 99px;
+  border-radius: var(--radius-pill);
   color: #fff;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   display: flex;
   align-items: center;
   gap: 4px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  animation: hud-toast-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: hud-toast-in 0.25s var(--ease-out) forwards;
 }
 
 @keyframes hud-toast-in {
@@ -1121,7 +1116,7 @@ html.shorts-document-scroll.is-pager-driven body {
   background: #252632;
   color: #fff;
   font-size: 16px;
-  font-weight: 400;
+  font-weight: var(--weight-regular);
   line-height: 22px;
   text-align: center;
   box-shadow: none;
@@ -1193,12 +1188,12 @@ html.shorts-document-scroll.is-pager-driven body {
   background: rgba(255, 255, 255, 0.15);
   border: 1px solid rgba(255, 255, 255, 0.25);
   padding: 8px 20px;
-  border-radius: 99px;
-  font-weight: 500;
+  border-radius: var(--radius-pill);
+  font-weight: var(--weight-medium);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
   margin-top: 8px;
-  transition: all 0.2s;
+  transition: color 0.2s, background-color 0.2s, border-color 0.2s;
 }
 
 @media (hover: hover) and (pointer: fine) {

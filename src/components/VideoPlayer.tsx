@@ -5,6 +5,7 @@ import {
   type CSSProperties,
   type MutableRefObject,
 } from "react";
+import { createPortal } from "react-dom";
 import Artplayer, { type Option, type SettingOption } from "artplayer";
 import {
   calculateFullscreenSubtitleBottom,
@@ -50,9 +51,9 @@ import {
   TripleScreenRenderer,
 } from "@/lib/tripleScreen";
 import type { VideoSubtitle } from "@/types";
+import "@/styles/video-player.css";
 
 type Props = {
-  id?: string;
   src: string;
   playbackUrl?: string;
   /**
@@ -76,11 +77,6 @@ type PlayerError = {
   message: string;
 };
 
-type GestureHud = {
-  key: number;
-  label: string;
-};
-
 type PreviewHover = {
   x: number;
   ratio: number;
@@ -97,7 +93,7 @@ type PlayerSettings = {
 
 type MobileGestureMode = "seek" | "volume" | "brightness";
 type MobileGestureSide = "left" | "right";
-type PlayerGestureHudKind = "volume" | "brightness";
+type PlayerGestureHudKind = "volume" | "brightness" | "seek";
 type KeyboardSeekKey = "ArrowLeft" | "ArrowRight";
 type MobileGestureState = {
   frame: PlayerGestureFrame;
@@ -228,15 +224,20 @@ export function VideoPlayer({
   const mountRef = useRef<HTMLDivElement | null>(null);
   const artRef = useRef<Artplayer | null>(null);
   const previewVideoRef = useRef<HTMLVideoElement | null>(null);
+  const pendingPreviewRatioRef = useRef<number | null>(null);
+  const previewSrcRef = useRef(previewSrc);
   const onFirstPlayRef = useRef<Props["onFirstPlay"]>(onFirstPlay);
   const loadSubtitlesRef = useRef<Props["loadSubtitles"]>(loadSubtitles);
   const playedRef = useRef(false);
   const [retryNonce, setRetryNonce] = useState(0);
+  // Overlays render inside ArtPlayer's own element so they follow it into
+  // native and web fullscreen.
+  const [overlayHost, setOverlayHost] = useState<HTMLElement | null>(null);
   const [playerError, setPlayerError] = useState<PlayerError | null>(null);
   const [sourceState, setSourceState] = useState<PlaybackState | null>(null);
-  const [gestureHud, setGestureHud] = useState<GestureHud | null>(null);
   const [previewHover, setPreviewHover] = useState<PreviewHover | null>(null);
-  const gestureHudTimerRef = useRef<number | null>(null);
+  // Mounted on first hover and kept, so later hovers reuse loaded metadata.
+  const [previewActivated, setPreviewActivated] = useState(false);
 
   useEffect(() => {
     onFirstPlayRef.current = onFirstPlay;
@@ -247,6 +248,11 @@ export function VideoPlayer({
   }, [loadSubtitles]);
 
   useEffect(() => {
+    previewSrcRef.current = previewSrc;
+    if (!previewSrc) setPreviewHover(null);
+  }, [previewSrc]);
+
+  useEffect(() => {
     const mount = mountRef.current;
     if (!mount) return;
 
@@ -255,6 +261,8 @@ export function VideoPlayer({
     setSourceState(null);
     setPreviewHover(null);
 
+    // Poster and title only seed a new player; later changes are applied in
+    // place below so a metadata refresh never restarts playback.
     const cleanupPlayer = mountArtPlayer({
       mount,
       src,
@@ -267,38 +275,34 @@ export function VideoPlayer({
       artRef,
       playedRef,
       onFirstPlayRef,
-      onFastChange: noop,
       onError: setPlayerError,
       onSourceChange: setSourceState,
-      onPreviewHover: setPreviewHover,
-      onGestureHud: showGestureHud,
+      onPreviewHover: handlePreviewHover,
     });
+    setOverlayHost(artRef.current?.template.$player ?? null);
 
-    return cleanupPlayer;
-  }, [poster, preferTypedMp4SourceOnIOS, retryNonce, src, playbackUrl, title]);
-
-  useEffect(() => {
     return () => {
-      if (gestureHudTimerRef.current !== null) {
-        window.clearTimeout(gestureHudTimerRef.current);
-      }
+      setOverlayHost(null);
+      cleanupPlayer();
     };
-  }, []);
+  }, [preferTypedMp4SourceOnIOS, retryNonce, src, playbackUrl]);
 
   useEffect(() => {
-    if (!previewSrc || !previewHover) return;
-    syncPreviewVideo(previewVideoRef.current, previewHover.ratio);
-  }, [previewHover, previewSrc]);
+    const art = artRef.current;
+    if (!art) return;
+    art.poster = poster;
+    art.video.setAttribute("aria-label", title);
+  }, [poster, title]);
 
-  function showGestureHud(label: string, duration = 700) {
-    if (gestureHudTimerRef.current !== null) {
-      window.clearTimeout(gestureHudTimerRef.current);
-    }
-    setGestureHud({ key: Date.now(), label });
-    gestureHudTimerRef.current = window.setTimeout(() => {
-      setGestureHud(null);
-      gestureHudTimerRef.current = null;
-    }, duration);
+  useEffect(() => {
+    if (!previewHover) return;
+    seekPreviewVideo(previewVideoRef.current, previewHover.ratio, pendingPreviewRatioRef);
+  }, [previewHover]);
+
+  function handlePreviewHover(hover: PreviewHover | null) {
+    if (hover && !previewSrcRef.current) return;
+    if (hover) setPreviewActivated(true);
+    setPreviewHover(hover);
   }
 
   function retryPlayback() {
@@ -308,71 +312,71 @@ export function VideoPlayer({
     }
   }
 
-  const previewStyle = previewHover
-    ? ({ left: `${previewHover.x}px` } as CSSProperties)
-    : undefined;
   const recoveryModes = sourceState?.error?.recoveryModes ?? [];
 
   return (
     <div className="video-player">
       <div ref={mountRef} className="video-player__mount" />
 
-      {sourceState?.processing && !playerError && (
-        <div className="video-player__processing" role="status" aria-live="polite">
-          {sourceState.notice || "视频正在转码，完成后将自动播放"}
-        </div>
-      )}
+      {overlayHost && createPortal(
+        <>
+          {sourceState?.processing && !playerError && (
+            <div className="video-player__processing" role="status" aria-live="polite">
+              {sourceState.notice || "视频正在转码，完成后将自动播放"}
+            </div>
+          )}
 
-      {playerError && (
-        <div className="video-player__error" role="alert">
-          <div className="video-player__error-title">{playerError.title}</div>
-          <div className="video-player__error-message">{playerError.message}</div>
-          <div className="video-player__error-actions">
-            <button type="button" onClick={retryPlayback}>
-              {sourceState?.error ? "重新获取" : "重试"}
-            </button>
-            {recoveryModes.map((mode) => (
-              <button key={mode} type="button" onClick={() => {
-                if (artRef.current) selectPlaybackMode(artRef.current.video, mode);
-              }}>
-                {mode === "original" ? "尝试原画播放" : "切换兼容播放"}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+          {playerError && (
+            <div className="video-player__error" role="alert">
+              <div className="video-player__error-title">{playerError.title}</div>
+              <div className="video-player__error-message">{playerError.message}</div>
+              <div className="video-player__error-actions">
+                <button type="button" onClick={retryPlayback}>
+                  {sourceState?.error ? "重新获取" : "重试"}
+                </button>
+                {recoveryModes.map((mode) => (
+                  <button key={mode} type="button" onClick={() => {
+                    if (artRef.current) selectPlaybackMode(artRef.current.video, mode);
+                  }}>
+                    {mode === "original" ? "尝试原画播放" : "切换兼容播放"}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
-      {previewSrc && previewHover && (
-        <div
-          className="video-player__seek-preview"
-          style={previewStyle}
-          aria-hidden="true"
-        >
-          <video
-            ref={previewVideoRef}
-            src={previewSrc}
-            poster={poster}
-            muted
-            playsInline
-            preload="metadata"
-            onLoadedMetadata={() =>
-              syncPreviewVideo(previewVideoRef.current, previewHover.ratio)
-            }
-          />
-          <span>{formatClock(previewHover.time)}</span>
-        </div>
+          {previewSrc && previewActivated && (
+            <div
+              className="video-player__seek-preview"
+              style={previewHover ? ({ left: `${previewHover.x}px` } as CSSProperties) : undefined}
+              hidden={!previewHover}
+              aria-hidden="true"
+            >
+              <video
+                ref={previewVideoRef}
+                src={previewSrc}
+                poster={poster}
+                muted
+                playsInline
+                preload="metadata"
+                onLoadedMetadata={(event) => {
+                  if (previewHover) {
+                    seekPreviewVideo(event.currentTarget, previewHover.ratio, pendingPreviewRatioRef);
+                  }
+                }}
+                onSeeked={(event) => {
+                  const ratio = pendingPreviewRatioRef.current;
+                  if (ratio !== null) {
+                    seekPreviewVideo(event.currentTarget, ratio, pendingPreviewRatioRef);
+                  }
+                }}
+              />
+              <span>{previewHover ? formatClock(previewHover.time) : ""}</span>
+            </div>
+          )}
+        </>,
+        overlayHost
       )}
-
-      {gestureHud && (
-        <div
-          key={gestureHud.key}
-          className="video-player__gesture-hud"
-          aria-hidden="true"
-        >
-          {gestureHud.label}
-        </div>
-      )}
-
     </div>
   );
 }
@@ -396,11 +400,9 @@ function mountArtPlayer({
   artRef,
   playedRef,
   onFirstPlayRef,
-  onFastChange,
   onError,
   onSourceChange,
   onPreviewHover,
-  onGestureHud,
 }: {
   mount: HTMLDivElement;
   src: string;
@@ -413,20 +415,28 @@ function mountArtPlayer({
   artRef: MutableRefObject<Artplayer | null>;
   playedRef: MutableRefObject<boolean>;
   onFirstPlayRef: MutableRefObject<Props["onFirstPlay"]>;
-  onFastChange: (active: boolean) => void;
   onError: (error: PlayerError | null) => void;
   onSourceChange: (state: PlaybackState) => void;
   onPreviewHover: (hover: PreviewHover | null) => void;
-  onGestureHud: (label: string, duration?: number) => void;
 }) {
+  // Media events clear the error constantly; only a shown error needs clearing.
+  let errorShown = false;
+  const reportError = (error: PlayerError | null) => {
+    if (!error && !errorShown) return;
+    errorShown = error !== null;
+    onError(error);
+  };
   const useTypedMp4Source =
     preferTypedMp4SourceOnIOS && isIOSPlaybackDevice();
   const sourceType = playbackUrl ? "resolved-source" : useTypedMp4Source
     ? TYPED_MP4_SOURCE_TYPE
     : inferSourceType(src);
-  const subtitleState: SubtitleLoadState = { status: "idle", subtitles: [] };
-  const fastActiveRef = { current: false };
-  const loadHlsSource = createHlsSourceLoader();
+  const subtitleState: SubtitleLoadState = {
+    status: "idle",
+    subtitles: [],
+    selection: { latest: 0, label: "关闭", switching: Promise.resolve() },
+  };
+  const loadHlsSource = (video: HTMLVideoElement, url: string) => attachVideoSource(video, url);
   const enableOrientationControl = shouldEnableMobileOrientationControl();
   const enableTripleScreenControl = shouldEnableTripleScreenControl();
   const enableWebFullscreen = shouldEnableWebFullscreen(enableOrientationControl);
@@ -562,25 +572,26 @@ function mountArtPlayer({
     }
     playbackErrorActive = false;
     clearPlaybackDiagnostic();
-    onError(null);
+    reportError(null);
   }
 
   function handleLoadStart() {
     playbackErrorActive = false;
-    onError(null);
+    reportError(null);
   }
 
   function handleReady() {
     playbackErrorActive = false;
     clearPlaybackDiagnostic();
-    onError(null);
+    reportError(null);
   }
 
   function handleVideoError() {
-    if (playbackUrl) return;
+    // An attached source controller owns recovery and reports its own failures.
+    if (playbackSourceState(video)) return;
     playbackErrorActive = true;
     const fallbackMessage = mediaErrorMessage(video.error);
-    onError({
+    reportError({
       title: "视频源加载失败",
       message: diagnosticMessage || fallbackMessage,
     });
@@ -593,7 +604,7 @@ function mountArtPlayer({
     void diagnosticPromise.then((message) => {
       diagnosticMessage = message;
       if (!disposed && playbackErrorActive && message) {
-        onError({ title: "视频源加载失败", message });
+        reportError({ title: "视频源加载失败", message });
       }
     });
   }
@@ -602,7 +613,7 @@ function mountArtPlayer({
     const failure = playbackSourceState(video)?.error;
     if (!failure) return;
     const unsupportedOriginal = failure.reason === "unsupported" && failure.sourceID === "original";
-    onError({
+    reportError({
       title: unsupportedOriginal ? "视频无法播放" : "视频源暂不可用",
       message: failure.message,
     });
@@ -614,7 +625,7 @@ function mountArtPlayer({
     const state = playbackSourceState(video);
     if (!state) return;
     onSourceChange(state);
-    if (!state.error) onError(null);
+    if (!state.error) reportError(null);
     const hasCloudSource = state.sources.some((source) => source.kind === "transcoded");
     const renditions = state.sources.filter((source) => source.kind === "transcoded" && source.id !== "cloud");
     const settingKey = `${state.mode}:${state.activeSource?.urlSource}:${state.activeSource?.id}:${state.activeSource?.kind}:${state.selectedSourceID}:${state.sources.map((source) => `${source.id}:${source.status}:${source.label}:${source.urlSource}`).join(",")}`;
@@ -640,30 +651,20 @@ function mountArtPlayer({
   }
 
   function resetFastRate() {
-    fastActiveRef.current = false;
     setPlayerFastRateHint(art, false);
-    onFastChange(false);
   }
 
   const handleFastChange = (active: boolean) => {
-    fastActiveRef.current = active;
     setPlayerFastRateHint(art, active);
-    onFastChange(active);
   };
 
   const unbindFastRate = bindLongPressFast(video, handleFastChange);
   const unbindMobileGestures = bindMobilePlayerGestures(
     art,
     video,
-    handleFastChange,
-    onGestureHud
+    handleFastChange
   );
-  const unbindProgressPreview = bindProgressPreview(
-    art,
-    video,
-    mount,
-    onPreviewHover
-  );
+  const unbindProgressPreview = bindProgressPreview(art, video, onPreviewHover);
   const unbindKeyboardHotkeys = bindPlayerKeyboardHotkeys(art);
   const unbindNativeBack = bindPlayerNativeBack(art);
   const unbindControlVisibility = bindPlayerControlVisibility(art, isMobilePlaybackDevice(), LONG_PRESS_MS);
@@ -687,7 +688,6 @@ function mountArtPlayer({
   art.on("video:canplay", handleReady);
   art.on("video:playing", handleReady);
   art.on("video:error", handleVideoError);
-  art.on("error", handleVideoError);
   art.on("video:play", handlePlay);
   art.on("video:pause", resetFastRate);
   art.on("video:ended", resetFastRate);
@@ -730,7 +730,6 @@ function mountArtPlayer({
     art.off("video:canplay", handleReady);
     art.off("video:playing", handleReady);
     art.off("video:error", handleVideoError);
-    art.off("error", handleVideoError);
     art.off("video:play", handlePlay);
     art.off("video:pause", resetFastRate);
     art.off("video:ended", resetFastRate);
@@ -757,11 +756,11 @@ function loadTypedMp4Source(
   source.dataset.videoPlayerTypedSource = "mp4";
   source.addEventListener(
     "error",
-    (event) => {
+    () => {
       // 使用 <source> 时，WebKit 会把资源选择错误派发到 source 节点；
-      // 转成 ArtPlayer 的媒体错误，沿用现有重试和诊断界面。
+      // 转成媒体元素的 error 事件，由 ArtPlayer 转发为一次 video:error，
+      // 沿用现有重试和诊断界面。
       if (!art.isDestroy && source.isConnected) {
-        art.emit("video:error", event);
         video.dispatchEvent(new Event("error"));
       }
     },
@@ -1069,10 +1068,6 @@ function configureArtPlayerSettingLayout(compact: boolean) {
   Artplayer.SETTING_ITEM_HEIGHT = layout.itemHeight;
 }
 
-function shouldEnableMobileGestures() {
-  return isMobilePlaybackDevice();
-}
-
 function createLoopSetting() {
   return {
     name: "mind-loop",
@@ -1094,12 +1089,22 @@ const SUBTITLE_PANEL_WIDTH = 240;
 type PlayerSubtitle = VideoSubtitle & { type: "vtt" | "srt" | "ass" };
 type PlayerSetting = NonNullable<Option["settings"]>[number];
 type SubtitleLoadStatus = "idle" | "loading" | "loaded" | "empty" | "error";
+type SubtitleSelection = {
+  /** Increments on every pick; older picks compare against it to stand down. */
+  latest: number;
+  /** Tooltip of the most recent pick, reused when an older pick settles late. */
+  label: string;
+  /** Switches run one at a time so the newest pick always applies last. */
+  switching: Promise<void>;
+};
 type SubtitleLoadState = {
   status: SubtitleLoadStatus;
   subtitles: PlayerSubtitle[];
+  selection: SubtitleSelection;
 };
 type ArtSettingWithRender = Artplayer["setting"] & {
   render: (settings?: SettingOption[]) => void;
+  check: (item: SettingOption) => void;
 };
 
 function playableSubtitles(subtitles: VideoSubtitle[]): PlayerSubtitle[] {
@@ -1162,7 +1167,8 @@ function createRenditionSetting(state: PlaybackState): PlayerSetting {
   return {
     name: "playback-rendition",
     html: "清晰度",
-    tooltip: sources.find((source) => source.id === state.activeSource?.id)?.label ?? "",
+    // ArtPlayer renders tooltips as HTML; rendition labels come from the server.
+    tooltip: escapeHtml(sources.find((source) => source.id === state.activeSource?.id)?.label ?? ""),
     selector: sources.map((source) => ({
       name: `rendition-${source.id}`,
       html: escapeHtml(source.label + (source.status === "processing" ? "（转码中）" : source.status === "unavailable" ? "（不可用）" : "")),
@@ -1171,7 +1177,7 @@ function createRenditionSetting(state: PlaybackState): PlayerSetting {
     })),
     onSelect(this: Artplayer, item: SettingOption) {
       selectPlaybackSource(this.video, item.value);
-      return sources.find((source) => source.id === playbackSourceState(this.video)?.activeSource?.id)?.label ?? "";
+      return escapeHtml(sources.find((source) => source.id === playbackSourceState(this.video)?.activeSource?.id)?.label ?? "");
     },
   };
 }
@@ -1242,22 +1248,44 @@ function createSubtitleSetting(
         }
       });
     },
-    onSelect(this: Artplayer, item: SettingOption) {
+    async onSelect(this: Artplayer, item: SettingOption) {
+      const selection = state.selection;
+      const pick = ++selection.latest;
       const value = String(item.value ?? "");
       if (value === "off") {
         setSubtitleVisible(this, false);
-        return "关闭";
+        selection.label = "关闭";
+        return selection.label;
       }
 
       const index = Number(value);
       const subtitle = subtitles[index];
       if (!subtitle) {
-        return escapeHtml(this.option.subtitle?.name || "字幕");
+        selection.label = escapeHtml(this.option.subtitle?.name || "字幕");
+        return selection.label;
       }
 
+      const label = escapeHtml(formatSubtitleTooltipLabel(subtitle, index));
+      selection.label = label;
       setSubtitleVisible(this, true);
-      void this.subtitle.switch(subtitle.url, subtitleOption(subtitle));
-      return escapeHtml(formatSubtitleTooltipLabel(subtitle, index));
+      const run = selection.switching.then(async () => {
+        if (pick !== selection.latest) return;
+        await this.subtitle.switch(subtitle.url, subtitleOption(subtitle));
+      });
+      selection.switching = run.catch(noop);
+      try {
+        await run;
+      } catch {
+        // ArtPlayer has already shown the failure notice. Only the newest pick
+        // may change what the menu and the subtitle layer show.
+        if (pick !== selection.latest) return selection.label;
+        setSubtitleVisible(this, false);
+        const off = item.$option.find((option) => option.value === "off");
+        if (off) (this.setting as ArtSettingWithRender).check(off);
+        selection.label = "关闭";
+        return selection.label;
+      }
+      return pick === selection.latest ? label : selection.label;
     },
   };
 }
@@ -1329,15 +1357,18 @@ function showPlayerGestureHud(
     .join(" ");
   hud.replaceChildren();
 
-  const icon = document.createElement("span");
-  icon.className = PLAYER_GESTURE_HUD_ICON_CLASS;
-  icon.innerHTML = playerGestureHudIcon(kind, value);
-
   const valueElement = document.createElement("span");
   valueElement.className = PLAYER_GESTURE_HUD_VALUE_CLASS;
   valueElement.textContent = value;
 
-  hud.append(icon, valueElement);
+  if (kind === "seek") {
+    hud.append(valueElement);
+  } else {
+    const icon = document.createElement("span");
+    icon.className = PLAYER_GESTURE_HUD_ICON_CLASS;
+    icon.innerHTML = playerGestureHudIcon(kind, value);
+    hud.append(icon, valueElement);
+  }
 
   const timer = window.setTimeout(() => {
     hud?.remove();
@@ -1356,7 +1387,7 @@ function clearPlayerGestureHud(art: Artplayer) {
   player.querySelector<HTMLElement>(`.${PLAYER_GESTURE_HUD_CLASS}`)?.remove();
 }
 
-function playerGestureHudIcon(kind: PlayerGestureHudKind, value: string) {
+function playerGestureHudIcon(kind: "volume" | "brightness", value: string) {
   if (kind === "brightness") {
     return `
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640">
@@ -1989,10 +2020,6 @@ function formatBrightnessPercent(brightness: number) {
   return formatPercent(normalized);
 }
 
-function createHlsSourceLoader() {
-  return (video: HTMLVideoElement, url: string) => attachVideoSource(video, url);
-}
-
 function bindLongPressFast(
   video: HTMLVideoElement,
   onFastChange: (active: boolean) => void
@@ -2089,10 +2116,9 @@ function bindLongPressFast(
 function bindMobilePlayerGestures(
   art: Artplayer,
   video: HTMLVideoElement,
-  onFastChange: (active: boolean) => void,
-  onGestureHud: (label: string, duration?: number) => void
+  onFastChange: (active: boolean) => void
 ) {
-  if (!shouldEnableMobileGestures()) return noop;
+  if (!isMobilePlaybackDevice()) return noop;
 
   const player = art.template.$player;
   let state: MobileGestureState | null = null;
@@ -2239,7 +2265,7 @@ function bindMobilePlayerGestures(
     state.targetTime = targetTime;
     art.emit("setBar", "played", targetTime / duration, event);
     if (!isPlayerExpanded(art)) return;
-    onGestureHud(seekGestureLabel(state.startTime, targetTime, duration), 560);
+    showPlayerGestureHud(art, "seek", seekGestureLabel(state.startTime, targetTime, duration), 560);
   }
 
   function handleVolumeGesture(currentY: number) {
@@ -2278,7 +2304,9 @@ function bindMobilePlayerGestures(
       if (Number.isFinite(duration) && duration > 0) {
         art.seek = clamp(state.targetTime, 0, duration);
         if (isPlayerExpanded(art)) {
-          onGestureHud(
+          showPlayerGestureHud(
+            art,
+            "seek",
             seekGestureLabel(state.startTime, state.targetTime, duration),
             720
           );
@@ -2319,22 +2347,38 @@ function bindMobilePlayerGestures(
 function bindProgressPreview(
   art: Artplayer,
   video: HTMLVideoElement,
-  mount: HTMLDivElement,
   onPreviewHover: (hover: PreviewHover | null) => void
 ) {
   const progress = art.query<HTMLElement>(".art-progress");
   if (!progress) return () => undefined;
   const progressEl = progress;
+  const player = art.template.$player;
+  let pendingEvent: PointerEvent | null = null;
+  let frame: number | null = null;
+  // Any pointerup in the window hides the preview; skip it when none is shown.
+  let shown = false;
 
-  function update(event: PointerEvent | MouseEvent) {
-    if ("pointerType" in event && event.pointerType === "touch") return;
+  function cancelFrame() {
+    if (frame !== null) window.cancelAnimationFrame(frame);
+    frame = null;
+    pendingEvent = null;
+  }
+
+  function flush() {
+    frame = null;
+    const event = pendingEvent;
+    pendingEvent = null;
+    if (!event) return;
     const duration = video.duration;
     if (!Number.isFinite(duration) || duration <= 0) return;
     const rect = progressEl.getBoundingClientRect();
-    const hostRect = mount.getBoundingClientRect();
+    // The preview lives inside the player element, which is also what goes
+    // fullscreen, so position it relative to that element.
+    const hostRect = player.getBoundingClientRect();
     const ratio = clamp((event.clientX - rect.left) / Math.max(1, rect.width), 0, 1);
     const edge = Math.min(PREVIEW_WIDTH / 2 + 8, hostRect.width / 2);
     const maxX = Math.max(edge, hostRect.width - edge);
+    shown = true;
     onPreviewHover({
       x: clamp(event.clientX - hostRect.left, edge, maxX),
       ratio,
@@ -2342,7 +2386,16 @@ function bindProgressPreview(
     });
   }
 
+  function update(event: PointerEvent) {
+    if (event.pointerType === "touch") return;
+    pendingEvent = event;
+    frame ??= window.requestAnimationFrame(flush);
+  }
+
   function hide() {
+    cancelFrame();
+    if (!shown) return;
+    shown = false;
     onPreviewHover(null);
   }
 
@@ -2353,6 +2406,7 @@ function bindProgressPreview(
   window.addEventListener("blur", hide);
 
   return () => {
+    cancelFrame();
     progressEl.removeEventListener("pointermove", update);
     progressEl.removeEventListener("pointerdown", update);
     progressEl.removeEventListener("pointerleave", hide);
@@ -2376,14 +2430,28 @@ function mediaErrorMessage(error: MediaError | null) {
   }
 }
 
-function syncPreviewVideo(video: HTMLVideoElement | null, ratio: number) {
-  if (!video || !Number.isFinite(video.duration) || video.duration <= 0) return;
+/**
+ * Keep at most one preview seek in flight. While the element is seeking, only
+ * the latest hover position is remembered and applied once the seek settles.
+ */
+function seekPreviewVideo(
+  video: HTMLVideoElement | null,
+  ratio: number,
+  pendingRatio: MutableRefObject<number | null>
+) {
+  if (!video) return;
+  if (video.seeking) {
+    pendingRatio.current = ratio;
+    return;
+  }
+  pendingRatio.current = null;
+  if (!Number.isFinite(video.duration) || video.duration <= 0) return;
   const target = clamp(ratio * video.duration, 0, Math.max(0, video.duration - 0.05));
   if (Math.abs(video.currentTime - target) > 0.25) {
     try {
       video.currentTime = target;
     } catch {
-      // ignore
+      // Seeking before the media is seekable is harmless; the next hover retries.
     }
   }
 }

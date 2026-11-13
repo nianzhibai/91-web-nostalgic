@@ -242,6 +242,17 @@ test("horizontal seeking commits the release position and the next tap still wor
   assert.equal(h.state.singles, 1);
 }));
 
+test("a system interruption discards a horizontal seek instead of committing it", () => {
+  for (const interrupt of ["pointercancel", "blur"] as const) withHarness(h => {
+    h.pointer("pointerdown"); h.pointer("pointermove", 160, 200);
+    assert.equal(h.state.seekPreviews.at(-1), 54);
+    if (interrupt === "blur") h.browser.emit("blur");
+    else h.pointer("pointercancel", 160, 200);
+    assert.equal(h.state.seeking, false);
+    assert.deepEqual(h.state.seekEnds, [30], "the video returns to where the drag started");
+  });
+});
+
 test("vertical swipes cancel a pending tap, including when release is captured by the pager", () => withHarness(h => {
   h.tap(); h.advance(80); h.pointer("pointerdown");
   h.pointer("pointermove", 100, 240);

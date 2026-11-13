@@ -9,7 +9,7 @@ function setup(t: TestContext) {
   const browserDocument = globalThis.document;
   browserDocument.visibilityState = "visible";
   const video = Object.assign(new EventTarget(), {
-    defaultPlaybackRate: 1, playbackRate: 1, loop: true, ended: false, volume: 1,
+    defaultPlaybackRate: 1, playbackRate: 1, loop: true, ended: false,
   });
   let advances = 0;
   let options = {
@@ -20,7 +20,6 @@ function setup(t: TestContext) {
     canGoNext: true,
     autoAdvance: false,
     playbackRate: 1,
-    volume: undefined as number | undefined,
     isTemporarilyAccelerated: false,
     onAdvance: () => { advances++; },
   };
@@ -107,32 +106,4 @@ test("desktop preferences leave iOS shared-video loop recovery unchanged and rem
   h.unmount();
   h.end();
   assert.equal(h.advances, 0);
-});
-
-test("desktop volume follows the mounted media element and returns to system loudness on mobile", t => {
-  const h = setup(t);
-  h.update({ volume: 0.35 });
-  assert.equal(h.video.volume, 0.35);
-  const nextVideo = Object.assign(new EventTarget(), {
-    defaultPlaybackRate: 1, playbackRate: 1, loop: true, ended: false, volume: 1,
-  });
-  h.update({ getVideoElement: () => nextVideo as unknown as HTMLVideoElement });
-  assert.equal(nextVideo.volume, 0.35);
-  h.update({ volume: 0 });
-  assert.equal(nextVideo.volume, 0);
-  h.update({ volume: undefined });
-  assert.equal(nextVideo.volume, 1);
-});
-
-test("mobile and shared iOS media do not receive desktop volume changes", t => {
-  const h = setup(t);
-  let writes = 0;
-  Object.defineProperty(h.video, "volume", {
-    get: () => 1,
-    set: () => { writes++; },
-  });
-  h.update({ playbackRate: 1.5 });
-  assert.equal(writes, 0);
-  h.update({ usesSharedVideo: true, volume: 0.2 });
-  assert.equal(writes, 0);
 });

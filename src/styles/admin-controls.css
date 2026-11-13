@@ -91,7 +91,7 @@
 .admin-password-input__toggle:focus-visible {
   outline: none;
   color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
+  box-shadow: var(--focus-ring);
 }
 
 .admin-btn {
@@ -110,11 +110,6 @@
   transition: background var(--transition-fast), border-color var(--transition-fast),
     color var(--transition-fast), box-shadow var(--transition-fast),
     transform var(--transition-fast);
-}
-
-.admin-btn__label {
-  min-width: 0;
-  overflow-wrap: anywhere;
 }
 
 @media (hover: hover) and (pointer: fine) {

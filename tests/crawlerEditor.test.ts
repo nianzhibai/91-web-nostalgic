@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { editorFormFromCrawler, editorFormWithImportedScript } from "../src/admin/crawlerEditor";
+import { editorFormChanged, editorFormFromCrawler, editorFormWithImportedScript } from "../src/admin/crawlerEditor";
 import { testCrawlerScript, upsertCrawler } from "../src/admin/api";
 
 const script = {
@@ -46,4 +46,11 @@ test("saving and testing send the selected feed to the backend", async () => {
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test("the crawler editor only reports edits that closing would discard", () => {
+  const initial = editorFormFromCrawler(null);
+  assert.equal(editorFormChanged({ ...initial, feeds: [...initial.feeds] }, initial), false);
+  assert.equal(editorFormChanged({ ...initial, proxy: "http://127.0.0.1:7890" }, initial), true);
+  assert.equal(editorFormChanged({ ...initial, feeds: [{ id: "latest", label: "最新" }] }, initial), true);
 });

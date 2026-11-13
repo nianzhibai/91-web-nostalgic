@@ -384,3 +384,45 @@ test("a position beyond a shortened list falls back to the furthest reachable po
     0
   );
 });
+
+test("stored history entries stay bounded and evict the oldest first", () => {
+  const storage = memoryStorage();
+  const entry = { queryKey: QUERY_KEY, feedToken: FEED_TOKEN, requestedCount: 60, scrollY: 10 };
+  for (let index = 0; index < 25; index += 1) {
+    writeListingScrollEntry(storage, `history-${index}`, entry);
+  }
+  // Rewriting an entry refreshes it, so it survives later evictions.
+  writeListingScrollEntry(storage, "history-5", entry);
+  writeListingScrollEntry(storage, "history-25", entry);
+  const stored = [...storage.map.keys()].filter((key) => key.startsWith("listing_scroll_v2:"));
+  assert.equal(stored.length, 20);
+  assert.equal(readListingScrollEntry(storage, "history-6"), null);
+  assert.ok(readListingScrollEntry(storage, "history-5"));
+  assert.ok(readListingScrollEntry(storage, "history-25"));
+});
+
+test("a full storage evicts older entries instead of silently dropping the new one", () => {
+  const storage = memoryStorage();
+  const entry = { queryKey: QUERY_KEY, feedToken: FEED_TOKEN, requestedCount: 60, scrollY: 10 };
+  writeListingScrollEntry(storage, "old", entry);
+  const setItem = storage.setItem;
+  storage.setItem = (key, value) => {
+    if (key.endsWith(":new") && storage.map.has(listingScrollStorageKey("old"))) {
+      throw new Error("QuotaExceededError");
+    }
+    setItem(key, value);
+  };
+  writeListingScrollEntry(storage, "new", entry);
+  assert.equal(readListingScrollEntry(storage, "old"), null);
+  assert.ok(readListingScrollEntry(storage, "new"));
+});
+
+test("very deep grids store the position without per-row measurements", () => {
+  const storage = memoryStorage();
+  const row = (index: number) => ({ index, key: index, start: index * 200, size: 200, end: index * 200 + 200, lane: 0 });
+  const grid = { viewportWidth: 390, columns: 1, scrollMargin: 0, measurements: Array.from({ length: 601 }, (_, i) => row(i)) };
+  writeListingScrollEntry(storage, "deep", { queryKey: QUERY_KEY, feedToken: FEED_TOKEN, requestedCount: 601, scrollY: 100_000, grid });
+  const restored = readListingScrollEntry(storage, "deep");
+  assert.equal(restored?.scrollY, 100_000);
+  assert.equal(restored?.grid, undefined);
+});

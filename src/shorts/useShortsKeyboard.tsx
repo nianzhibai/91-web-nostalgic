@@ -19,22 +19,32 @@ const SHORTS_KEYBOARD_DOUBLE_SPACE_MS = 280;
 
 type ShortsKeyboardSeekKey = "ArrowLeft" | "ArrowRight";
 
+/**
+ * 键盘目标一律按 feed key（加 video 元素）认人，不按索引：长会话队列裁剪会
+ * 整体平移索引，但同一条视频的 key 不变，长按中的累计 seek 不会因此作废。
+ */
 export type ShortsKeyboardSeekPreview = {
-  videoIndex: number;
+  itemKey: string;
   currentTime: number;
   duration: number;
 };
 
-type ShortsKeyboardSeekTarget = ShortsKeyboardSeekPreview & {
+type ShortsKeyboardVideoTarget = {
+  itemKey: string;
   video: HTMLVideoElement;
 };
 
+type ShortsKeyboardSeekTarget = ShortsKeyboardSeekPreview & ShortsKeyboardVideoTarget;
+
 export type ShortsKeyboardOptions = {
   resetKey?: string;
-  /** 滚动容器：用于定位目标 slide 与当前屏的点赞按钮 */
+  /** 滚动容器：用于定位当前屏的点赞按钮与侧栏操作 */
   containerRef: React.RefObject<HTMLDivElement | null>;
   activeIndexRef: React.MutableRefObject<number>;
-  itemsLengthRef: React.MutableRefObject<number>;
+  /** 当前屏的 feed key；队列裁剪后仍指向同一条视频。 */
+  getActiveItemKey: () => string;
+  /** ↑/↓ 翻到相邻一屏；由翻页器负责动画与越界。 */
+  onStep: (direction: 1 | -1) => void;
   /** 返回某索引当前生效的 video 元素（iOS 分支返回共享节点） */
   getVideoAtIndex: (index: number) => HTMLVideoElement | undefined;
   isVideoPausedByUser: (index: number) => boolean;
@@ -59,19 +69,19 @@ export type ShortsKeyboardOptions = {
 export function useShortsKeyboard(options: ShortsKeyboardOptions) {
   const [keyboardSeekPreview, setKeyboardSeekPreview] =
     useState<ShortsKeyboardSeekPreview | null>(null);
-  const [keyboardFastPlaybackIndex, setKeyboardFastPlaybackIndex] =
-    useState<number | null>(null);
+  const [keyboardFastPlaybackKey, setKeyboardFastPlaybackKey] =
+    useState<string | null>(null);
   const keyboardSeekTargetRef = useRef<ShortsKeyboardSeekTarget | null>(null);
   const keyboardSeekHeldKeysRef = useRef<Set<ShortsKeyboardSeekKey>>(new Set());
   const keyboardSeekCommitTimerRef = useRef<number | null>(null);
   const keyboardSeekHideTimerRef = useRef<number | null>(null);
-  const keyboardLikeHandlersRef = useRef<Map<number, () => void>>(new Map());
+  const keyboardLikeHandlersRef = useRef<Map<string, () => void>>(new Map());
   const registerKeyboardLikeHandler = useCallback(
-    (index: number, handler: (() => void) | null) => {
+    (itemKey: string, handler: (() => void) | null) => {
       if (handler) {
-        keyboardLikeHandlersRef.current.set(index, handler);
+        keyboardLikeHandlersRef.current.set(itemKey, handler);
       } else {
-        keyboardLikeHandlersRef.current.delete(index);
+        keyboardLikeHandlersRef.current.delete(itemKey);
       }
     },
     []
@@ -83,10 +93,8 @@ export function useShortsKeyboard(options: ShortsKeyboardOptions) {
   // 键盘快捷键监听
   useEffect(() => {
     setKeyboardSeekPreview(null);
-    setKeyboardFastPlaybackIndex(null);
-    const { activeIndexRef, itemsLengthRef, containerRef } = optionsRef.current;
-    const getCurrentVideoAtIndex = (videoIndex: number) =>
-      optionsRef.current.getVideoAtIndex(videoIndex);
+    setKeyboardFastPlaybackKey(null);
+    const { activeIndexRef, containerRef } = optionsRef.current;
     const isVideoPausedByUser = (videoIndex: number) =>
       optionsRef.current.isVideoPausedByUser(videoIndex);
     const setUserPausedForIndex = (videoIndex: number, isPaused: boolean) =>
@@ -94,17 +102,24 @@ export function useShortsKeyboard(options: ShortsKeyboardOptions) {
     const showHud = (text: string, icon?: ReactNode) =>
       optionsRef.current.showHud(text, icon);
 
+    /** 当前屏的 key 与实际播放元素；没有可操作的视频时为 null。 */
+    const readActiveTarget = (): ShortsKeyboardVideoTarget | null => {
+      const video = optionsRef.current.getVideoAtIndex(activeIndexRef.current);
+      if (!video) return null;
+      return { itemKey: optionsRef.current.getActiveItemKey(), video };
+    };
+    /** 目标仍是当前屏、且仍由同一个元素播放。 */
+    const isActiveTarget = (target: ShortsKeyboardVideoTarget) => {
+      const active = readActiveTarget();
+      return active?.itemKey === target.itemKey && active.video === target.video;
+    };
+
     let pendingSpaceTimer: number | null = null;
-    let pendingSpaceTarget: {
-      videoIndex: number;
-      video: HTMLVideoElement;
-    } | null = null;
+    let pendingSpaceTarget: ShortsKeyboardVideoTarget | null = null;
     let keyboardRightPressTimer: number | null = null;
-    let keyboardRightPressTarget: {
-      videoIndex: number;
-      video: HTMLVideoElement;
+    let keyboardRightPressTarget: (ShortsKeyboardVideoTarget & {
       fastPlaybackActive: boolean;
-    } | null = null;
+    }) | null = null;
 
     const clearKeyboardSeekCommitTimer = () => {
       if (keyboardSeekCommitTimerRef.current === null) return;
@@ -130,43 +145,33 @@ export function useShortsKeyboard(options: ShortsKeyboardOptions) {
       pendingSpaceTarget = null;
     };
 
-    const getActiveLikeButton = (videoIndex: number) =>
+    const getActiveLikeButton = () =>
       containerRef.current?.querySelector<HTMLButtonElement>(
-        `[data-index="${videoIndex}"] [data-shorts-like]`
+        `[data-index="${activeIndexRef.current}"] [data-shorts-like]`
       ) ?? null;
 
-    const likeActiveVideo = (videoIndex: number) => {
-      keyboardLikeHandlersRef.current.get(videoIndex)?.();
+    const likeVideo = (itemKey: string) => {
+      keyboardLikeHandlersRef.current.get(itemKey)?.();
     };
 
-    const toggleKeyboardPlayback = (target: {
-      videoIndex: number;
-      video: HTMLVideoElement;
-    }) => {
-      if (
-        activeIndexRef.current !== target.videoIndex ||
-        getCurrentVideoAtIndex(target.videoIndex) !== target.video
-      ) {
-        return;
-      }
+    const toggleKeyboardPlayback = (target: ShortsKeyboardVideoTarget) => {
+      if (!isActiveTarget(target)) return;
 
+      const videoIndex = activeIndexRef.current;
       const shouldResume =
-        isVideoPausedByUser(target.videoIndex) ||
+        isVideoPausedByUser(videoIndex) ||
         (target.video.paused && target.video.readyState >= 3);
       if (shouldResume) {
-        setUserPausedForIndex(target.videoIndex, false);
+        setUserPausedForIndex(videoIndex, false);
         target.video.play().catch(() => undefined);
       } else {
-        setUserPausedForIndex(target.videoIndex, true);
+        setUserPausedForIndex(videoIndex, true);
         target.video.pause();
       }
     };
 
-    const scheduleKeyboardSpaceToggle = (
-      videoIndex: number,
-      video: HTMLVideoElement
-    ) => {
-      pendingSpaceTarget = { videoIndex, video };
+    const scheduleKeyboardSpaceToggle = (target: ShortsKeyboardVideoTarget) => {
+      pendingSpaceTarget = target;
       pendingSpaceTimer = window.setTimeout(() => {
         const target = pendingSpaceTarget;
         pendingSpaceTimer = null;
@@ -186,11 +191,7 @@ export function useShortsKeyboard(options: ShortsKeyboardOptions) {
       if (!target) return false;
 
       discardKeyboardSeek();
-      const currentVideo = getCurrentVideoAtIndex(target.videoIndex);
-      if (
-        activeIndexRef.current === target.videoIndex &&
-        currentVideo === target.video
-      ) {
+      if (isActiveTarget(target)) {
         const duration =
           Number.isFinite(target.video.duration) && target.video.duration > 0
             ? target.video.duration
@@ -223,10 +224,10 @@ export function useShortsKeyboard(options: ShortsKeyboardOptions) {
       delta: number,
       key: ShortsKeyboardSeekKey
     ) => {
-      const videoIndex = activeIndexRef.current;
-      const activeVideo = getCurrentVideoAtIndex(videoIndex);
-      const duration = activeVideo?.duration ?? 0;
-      if (!activeVideo || !Number.isFinite(duration) || duration <= 0) return;
+      const active = readActiveTarget();
+      const duration = active?.video.duration ?? 0;
+      if (!active || !Number.isFinite(duration) || duration <= 0) return;
+      const { itemKey, video: activeVideo } = active;
 
       if (keyboardSeekHideTimerRef.current !== null) {
         window.clearTimeout(keyboardSeekHideTimerRef.current);
@@ -235,7 +236,7 @@ export function useShortsKeyboard(options: ShortsKeyboardOptions) {
 
       const pendingTarget = keyboardSeekTargetRef.current;
       const canContinuePendingTarget =
-        pendingTarget?.videoIndex === videoIndex &&
+        pendingTarget?.itemKey === itemKey &&
         pendingTarget.video === activeVideo;
       if (pendingTarget && !canContinuePendingTarget) {
         discardKeyboardSeek();
@@ -246,9 +247,8 @@ export function useShortsKeyboard(options: ShortsKeyboardOptions) {
         ? pendingTarget.currentTime
         : activeVideo.currentTime;
       const currentTime = clamp(baseTime + delta, 0, duration);
-      const nextTarget = { videoIndex, video: activeVideo, currentTime, duration };
-      keyboardSeekTargetRef.current = nextTarget;
-      setKeyboardSeekPreview({ videoIndex, currentTime, duration });
+      keyboardSeekTargetRef.current = { itemKey, video: activeVideo, currentTime, duration };
+      setKeyboardSeekPreview({ itemKey, currentTime, duration });
       if (!optionsRef.current.isWindowsShortsPlatform) {
         showHud(
           delta > 0 ? "+5秒" : "-5秒",
@@ -276,15 +276,11 @@ export function useShortsKeyboard(options: ShortsKeyboardOptions) {
         } catch {
           // ignore
         }
-        setKeyboardFastPlaybackIndex(null);
+        setKeyboardFastPlaybackKey(null);
         return;
       }
 
-      if (
-        seekOnShortPress &&
-        activeIndexRef.current === target.videoIndex &&
-        getCurrentVideoAtIndex(target.videoIndex) === target.video
-      ) {
+      if (seekOnShortPress && isActiveTarget(target)) {
         previewKeyboardSeek(
           SHORTS_KEYBOARD_SEEK_SECONDS,
           "ArrowRight"
@@ -297,22 +293,16 @@ export function useShortsKeyboard(options: ShortsKeyboardOptions) {
     const startKeyboardRightPress = () => {
       if (keyboardRightPressTarget) return;
       finishKeyboardSeek();
-      const videoIndex = activeIndexRef.current;
-      const video = getCurrentVideoAtIndex(videoIndex);
-      if (!video) return;
+      const active = readActiveTarget();
+      if (!active) return;
 
-      keyboardRightPressTarget = {
-        videoIndex,
-        video,
-        fastPlaybackActive: false,
-      };
+      keyboardRightPressTarget = { ...active, fastPlaybackActive: false };
       keyboardRightPressTimer = window.setTimeout(() => {
         keyboardRightPressTimer = null;
         const target = keyboardRightPressTarget;
         if (
           !target ||
-          activeIndexRef.current !== target.videoIndex ||
-          getCurrentVideoAtIndex(target.videoIndex) !== target.video ||
+          !isActiveTarget(target) ||
           target.video.paused ||
           target.video.ended
         ) {
@@ -324,7 +314,7 @@ export function useShortsKeyboard(options: ShortsKeyboardOptions) {
           return;
         }
         target.fastPlaybackActive = true;
-        setKeyboardFastPlaybackIndex(target.videoIndex);
+        setKeyboardFastPlaybackKey(target.itemKey);
       }, SHORTS_KEYBOARD_FAST_PLAYBACK_DELAY_MS);
     };
 
@@ -340,6 +330,9 @@ export function useShortsKeyboard(options: ShortsKeyboardOptions) {
       ) {
         return;
       }
+      // 带 Ctrl/Cmd/Alt 的组合键属于浏览器和系统（Ctrl+L 聚焦地址栏、Alt+←
+      // 后退、Cmd+↑ 等），一律不接管。
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
       const key = e.key.toUpperCase();
       const desktopAction = key === SHORTS_CONTROL_SHORTCUTS.autoAdvance
         ? optionsRef.current.onToggleAutoAdvance
@@ -348,7 +341,7 @@ export function useShortsKeyboard(options: ShortsKeyboardOptions) {
           : key === SHORTS_CONTROL_SHORTCUTS.fullscreen
             ? optionsRef.current.onToggleFullscreen
             : undefined;
-      if (desktopAction && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      if (desktopAction) {
         e.preventDefault();
         if (!e.repeat) desktopAction();
         return;
@@ -356,7 +349,7 @@ export function useShortsKeyboard(options: ShortsKeyboardOptions) {
       const sidebarShortcut = [
         SHORTS_ACTION_SHORTCUTS.source, SHORTS_ACTION_SHORTCUTS.share, SHORTS_ACTION_SHORTCUTS.hide,
       ].some((shortcut) => shortcut === key);
-      if (optionsRef.current.enableSidebarShortcuts && sidebarShortcut && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      if (optionsRef.current.enableSidebarShortcuts && sidebarShortcut) {
         // 使用当前视频实际渲染的控件，沿用其权限、禁用状态和原有点击流程。
         const action = containerRef.current?.querySelector<HTMLElement>(
           `[data-index="${activeIndexRef.current}"][data-active="true"] [data-shorts-shortcut="${key}"]`
@@ -380,52 +373,34 @@ export function useShortsKeyboard(options: ShortsKeyboardOptions) {
         return;
       }
 
-      if (e.key === "ArrowDown") {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
         e.preventDefault();
         finishKeyboardRightPress(false);
         finishKeyboardSeek();
-        const nextIdx = activeIndexRef.current + 1;
-        if (nextIdx < itemsLengthRef.current) {
-          const nextSlide = containerRef.current?.querySelector(`[data-index="${nextIdx}"]`);
-          if (nextSlide) {
-            nextSlide.scrollIntoView({ behavior: "smooth" });
-          }
-        }
-      } else if (e.key === "ArrowUp") {
-        e.preventDefault();
-        finishKeyboardRightPress(false);
-        finishKeyboardSeek();
-        const prevIdx = activeIndexRef.current - 1;
-        if (prevIdx >= 0) {
-          const prevSlide = containerRef.current?.querySelector(`[data-index="${prevIdx}"]`);
-          if (prevSlide) {
-            prevSlide.scrollIntoView({ behavior: "smooth" });
-          }
-        }
+        optionsRef.current.onStep(e.key === "ArrowDown" ? 1 : -1);
       } else if (e.key === " ") {
         e.preventDefault();
         finishKeyboardRightPress(false);
         finishKeyboardSeek();
         if (e.repeat) return;
-        const videoIndex = activeIndexRef.current;
-        const activeVideo = getCurrentVideoAtIndex(videoIndex);
-        if (!activeVideo) {
+        const active = readActiveTarget();
+        if (!active) {
           clearKeyboardSpaceTimer();
           return;
         }
 
         if (
           pendingSpaceTimer !== null &&
-          pendingSpaceTarget?.videoIndex === videoIndex &&
-          pendingSpaceTarget.video === activeVideo
+          pendingSpaceTarget?.itemKey === active.itemKey &&
+          pendingSpaceTarget.video === active.video
         ) {
           clearKeyboardSpaceTimer();
-          likeActiveVideo(videoIndex);
+          likeVideo(active.itemKey);
           return;
         }
 
         clearKeyboardSpaceTimer();
-        scheduleKeyboardSpaceToggle(videoIndex, activeVideo);
+        scheduleKeyboardSpaceToggle(active);
       } else if (e.key === "m" || e.key === "M") {
         e.preventDefault();
         finishKeyboardRightPress(false);
@@ -437,7 +412,7 @@ export function useShortsKeyboard(options: ShortsKeyboardOptions) {
         finishKeyboardRightPress(false);
         finishKeyboardSeek();
         if (e.repeat) return;
-        getActiveLikeButton(activeIndexRef.current)?.click();
+        getActiveLikeButton()?.click();
       } else if (e.key === "ArrowRight") {
         e.preventDefault();
         if (e.repeat) return;
@@ -504,7 +479,7 @@ export function useShortsKeyboard(options: ShortsKeyboardOptions) {
 
   return {
     keyboardSeekPreview,
-    keyboardFastPlaybackIndex,
+    keyboardFastPlaybackKey,
     registerKeyboardLikeHandler,
   };
 }

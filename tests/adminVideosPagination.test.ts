@@ -313,7 +313,7 @@ test("current videos keep their skeleton while blacklist initial loading stays i
   );
   assert.match(
     adminCss,
-    /\.admin-card-skeleton-surface\s*\{[^}]*linear-gradient\([^}]*animation:\s*admin-card-skeleton-shimmer 1\.5s ease-in-out infinite;/s
+    /\.admin-card-skeleton-surface\s*\{[^}]*linear-gradient\([^}]*animation:\s*shimmer 1\.5s ease-in-out infinite;/s
   );
   assert.doesNotMatch(blacklistSource, /LoadingState|AdminLoading/);
 });

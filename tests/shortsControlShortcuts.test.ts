@@ -26,7 +26,8 @@ function setup(t: TestContext) {
     },
   };
   let options: ShortsKeyboardOptions = {
-    containerRef: { current: root as unknown as HTMLDivElement }, activeIndexRef, itemsLengthRef: { current: 2 },
+    containerRef: { current: root as unknown as HTMLDivElement }, activeIndexRef,
+    getActiveItemKey: () => `item-${activeIndexRef.current}`, onStep: () => {},
     getVideoAtIndex: () => undefined, isVideoPausedByUser: () => false,
     setUserPausedForIndex: () => {}, onToggleMute: () => {}, showHud: () => {},
     isWindowsShortsPlatform: true,

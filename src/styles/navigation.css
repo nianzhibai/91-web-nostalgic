@@ -1,10 +1,4 @@
-/* =========================================================
- * Navigation
- * sticky 玻璃顶栏 + Logo 渐变 + 移动端汉堡
- * ========================================================= */
-.top-bar {
-  display: none; /* TopBar 当前返回 null */
-}
+
 
 .main-nav {
   position: sticky;
@@ -157,39 +151,6 @@
   transform: scale(0.96);
 }
 
-/* ----- 子导航（一般为空，留作扩展） ----- */
-.sub-nav {
-  background: var(--bg-surface);
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.sub-nav__list {
-  display: flex;
-  align-items: center;
-  gap: var(--space-5);
-  height: 40px;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.sub-nav__list::-webkit-scrollbar {
-  display: none;
-}
-
-.sub-nav__item {
-  white-space: nowrap;
-  font-size: var(--font-sm);
-  color: var(--text-muted);
-  transition: color var(--transition-fast);
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .sub-nav__item:hover {
-    color: var(--accent);
-  }
-}
-
-/* ----- 响应式 ----- */
 @media (max-width: 768px) {
   .app-shell--mobile-auto-hide-nav .app-shell__nav-stack {
     position: sticky;

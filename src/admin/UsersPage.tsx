@@ -15,7 +15,7 @@ import { PasswordInput } from "./PasswordInput";
 import { useAdminFloatingActionSpace } from "./useAdminFloatingActionSpace";
 import { useAdminRouteActive } from "./AdminRouteCache";
 import { useAdminResource } from "./useAdminResource";
-import { useAuth } from "./AuthContext";
+import { ResourceErrorBanners } from "./ResourceErrorBanners";
 
 type Tab = "users" | "ips";
 const MIN_PASSWORD_LENGTH = 6;
@@ -24,12 +24,11 @@ export function UsersPage() {
   const floatingActionPageRef = useAdminFloatingActionSpace<HTMLDivElement>();
   const [tab, setTab] = useState<Tab>("users");
   const routeActive = useAdminRouteActive();
-  const { invalidateSession } = useAuth();
   const userResource = useAdminResource(api.listUsers, {
-    queryKey: "users", active: routeActive, intervalMs: null, initialData: [], onUnauthorized: invalidateSession,
+    queryKey: "users", active: routeActive, intervalMs: null, initialData: [],
   });
   const ipResource = useAdminResource(api.listBannedIPs, {
-    queryKey: "banned-ips", active: routeActive, intervalMs: null, initialData: [], onUnauthorized: invalidateSession,
+    queryKey: "banned-ips", active: routeActive, intervalMs: null, initialData: [],
   });
   const { data: users, invalidate: refreshUsers } = userResource;
   const { data: ips, invalidate: refreshIPs } = ipResource;
@@ -46,6 +45,9 @@ export function UsersPage() {
   const [deleteConfirm, setDeleteConfirm] = useState<api.AdminUser | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [unbanIPConfirm, setUnbanIPConfirm] = useState<string | null>(null);
+  const [unbanningIP, setUnbanningIP] = useState(false);
+  const [banConfirm, setBanConfirm] = useState<api.AdminUser | null>(null);
+  const [banPendingId, setBanPendingId] = useState<number | null>(null);
   const { show } = useToast();
   const createPasswordError =
     createPassword.length > 0 && createPassword.length < MIN_PASSWORD_LENGTH
@@ -78,18 +80,24 @@ export function UsersPage() {
     }
   }
 
-  async function handleBan(user: api.AdminUser) {
+  // Banning is disruptive, so it asks first; lifting a ban is immediate.
+  async function setUserBanned(user: api.AdminUser, banned: boolean) {
+    if (banPendingId !== null) return;
+    setBanPendingId(user.id);
     try {
-      if (user.banned) {
-        await api.unbanUser(user.id);
-        show("已解封用户", "success");
-      } else {
+      if (banned) {
         await api.banUser(user.id);
         show("已封禁用户", "success");
+        setBanConfirm(null);
+      } else {
+        await api.unbanUser(user.id);
+        show("已解封用户", "success");
       }
       await refreshUsers();
     } catch (e) {
       show(e instanceof Error ? e.message : "操作失败", "error");
+    } finally {
+      setBanPendingId(null);
     }
   }
 
@@ -129,7 +137,8 @@ export function UsersPage() {
   }
 
   async function handleUnbanIP() {
-    if (!unbanIPConfirm) return;
+    if (!unbanIPConfirm || unbanningIP) return;
+    setUnbanningIP(true);
     try {
       await api.unbanIP(unbanIPConfirm);
       show("已解除IP封禁", "success");
@@ -137,6 +146,8 @@ export function UsersPage() {
       await refreshIPs();
     } catch (e) {
       show(e instanceof Error ? e.message : "解封失败", "error");
+    } finally {
+      setUnbanningIP(false);
     }
   }
 
@@ -185,12 +196,7 @@ export function UsersPage() {
         </button>
       )}
 
-      {resource.error && (
-        <div className="admin-detail-error" role="alert">
-          {resource.error}
-          <button type="button" className="admin-btn" onClick={() => void resource.refresh()}>重试</button>
-        </div>
-      )}
+      <ResourceErrorBanners failures={[{ error: resource.error, retry: resource.refresh }]} />
       {!loading && tab === "users" && resource.ready && (
         <div className="admin-table-wrap admin-users-table-wrap">
           <table className="admin-table admin-users-table">
@@ -233,7 +239,8 @@ export function UsersPage() {
                       <div className="admin-users-table__action-row">
                         <button
                           className="admin-btn admin-btn--small"
-                          onClick={() => handleBan(u)}
+                          onClick={() => u.banned ? void setUserBanned(u, false) : setBanConfirm(u)}
+                          disabled={banPendingId === u.id}
                           title={u.banned ? "解封" : "封禁"}
                         >
                           {u.banned ? <ShieldOff size={14} /> : <Ban size={14} />}
@@ -440,6 +447,19 @@ export function UsersPage() {
         modalClassName="admin-modal--ip-unban"
         onConfirm={handleUnbanIP}
         onCancel={() => setUnbanIPConfirm(null)}
+        loading={unbanningIP}
+      />
+
+      <ConfirmModal
+        open={banConfirm !== null}
+        title="封禁用户"
+        message={`确定要封禁用户「${banConfirm?.username ?? ""}」吗？`}
+        hideIcon
+        danger
+        modalClassName="admin-modal--user-delete"
+        onConfirm={() => { if (banConfirm) void setUserBanned(banConfirm, true); }}
+        onCancel={() => setBanConfirm(null)}
+        loading={banConfirm !== null && banPendingId === banConfirm.id}
       />
     </div>
   );

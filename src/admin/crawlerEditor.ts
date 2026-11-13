@@ -26,6 +26,15 @@ export function editorFormFromCrawler(crawler: AdminCrawler | null): CrawlerEdit
   };
 }
 
+/** Whether the editor holds edits that closing would discard. */
+export function editorFormChanged(form: CrawlerEditorForm, initial: CrawlerEditorForm) {
+  return (Object.keys(initial) as (keyof CrawlerEditorForm)[]).some((key) =>
+    key === "feeds"
+      ? JSON.stringify(form.feeds) !== JSON.stringify(initial.feeds)
+      : form[key] !== initial[key]
+  );
+}
+
 export function editorFormWithImportedScript(
   form: CrawlerEditorForm,
   script: ImportCrawlerScriptResult,

@@ -14,8 +14,13 @@ import { client } from "../client";
 import type { Theme } from "@91/client/types";
 export type { Theme } from "@91/client/types";
 
-export const THEMES: Theme[] = ["dark", "light"];
 const STORAGE_KEY = "video-site:theme";
+
+/** Browser chrome colors (`--bg-page`); index.html's inline script mirrors them. */
+export const THEME_COLORS: Record<Theme, string> = {
+  dark: "#0b0c10",
+  light: "#fff5f7",
+};
 
 export function isTheme(value: unknown): value is Theme {
   return value === "dark" || value === "light";
@@ -43,6 +48,9 @@ export function applyTheme(theme: Theme | string | undefined | null): void {
   }
   if (typeof document !== "undefined") {
     document.documentElement.setAttribute("data-theme", theme);
+    document
+      .querySelector<HTMLMetaElement>('meta[name="theme-color"]')
+      ?.setAttribute("content", THEME_COLORS[theme]);
   }
   try {
     localStorage.setItem(STORAGE_KEY, theme);

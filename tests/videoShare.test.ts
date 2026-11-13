@@ -26,10 +26,7 @@ const footerSource = readFileSync(
   new URL("../src/components/Footer.tsx", import.meta.url),
   "utf8"
 );
-const shareStylesSource = readFileSync(
-  new URL("../src/styles/video-detail.css", import.meta.url),
-  "utf8"
-);
+const shareStylesSource = readFileSync(new URL("../src/styles/share-page.css", import.meta.url), "utf8");
 const baseStylesSource = readFileSync(
   new URL("../src/styles/base.css", import.meta.url),
   "utf8"

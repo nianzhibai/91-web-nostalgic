@@ -12,18 +12,17 @@ function loadAvailability(signal: AbortSignal) {
 }
 
 // Navigation follows saved configuration; only the workspace reads runtime status.
-export function TelegramStatusProvider({ children, workspaceActive, onUnauthorized }: {
+export function TelegramStatusProvider({ children, workspaceActive }: {
   children: ReactNode;
   workspaceActive: boolean;
-  onUnauthorized?: () => void;
 }) {
   const { enabled } = useTelegramAvailability();
   const configuration = useAdminResource<boolean | null>(loadAvailability, {
-    queryKey: "telegram-availability", active: true, initialData: null, intervalMs: null, onUnauthorized,
+    queryKey: "telegram-availability", active: true, initialData: null, intervalMs: null,
     retryOnError: enabled === null, maxRetries: 3,
   });
   const status = useAdminResource<api.TelegramStatus | null>(api.getTelegramStatus, {
-    queryKey: "telegram-status", active: workspaceActive && enabled === true, initialData: null, onUnauthorized,
+    queryKey: "telegram-status", active: workspaceActive && enabled === true, initialData: null,
     intervalMs: (data) => data?.enabled === false ? null : data?.connection.state === "connecting" ? 5000 : 15_000,
   });
   useEffect(() => {

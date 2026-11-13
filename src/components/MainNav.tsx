@@ -4,6 +4,7 @@ import {
   LogOut,
   X,
 } from "lucide-react";
+import brandIconUrl from "@/assets/brand-icon.png";
 import { useAuth } from "@/admin/AuthContext";
 import { UploadIcon } from "@/components/icons/UploadIcon";
 import { VideoIcon } from "@/components/icons/VideoIcon";
@@ -116,7 +117,7 @@ export function MainNav() {
       <div className="container main-nav__inner">
         <NavLink to="/" className="main-nav__logo">
           <span className="main-nav__logo-mark">
-            <img src="/icon.png" alt="" className="main-nav__logo-img" />
+            <img src={brandIconUrl} alt="" className="main-nav__logo-img" />
           </span>
         </NavLink>
 

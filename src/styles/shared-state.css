@@ -1,4 +1,33 @@
 /* Small state primitives shared by public pages, authentication and admin. */
+
+/* ----- Shared motion ----- */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Skeleton surfaces use a 200%-wide gradient that sweeps right to left. */
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+/* Reduced motion stops decorative animation globally (base.css). Busy
+   spinners report state rather than decorate, so they keep turning slowly. */
+@media (prefers-reduced-motion: reduce) {
+  :is(
+    .admin-spin,
+    .admin-global-action__spin,
+    .theme-card__spin,
+    .tg-spin,
+    .home-refresh.is-refreshing svg,
+    .share-page__spinner,
+    .shorts-slide__loading-spinner,
+    .video-grid-refresh-overlay__spinner
+  ) {
+    animation-duration: 1.6s !important;
+    animation-iteration-count: infinite !important;
+  }
+}
 .admin-empty-state {
   display: flex;
   flex-direction: column;
@@ -47,11 +76,6 @@
   color: var(--text-muted);
   font-size: var(--font-sm);
   line-height: var(--line-relaxed);
-}
-
-.admin-empty-state__icon {
-  margin-bottom: 16px;
-  color: var(--border-default);
 }
 
 .admin-empty-state h3 {

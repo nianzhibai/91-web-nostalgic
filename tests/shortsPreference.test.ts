@@ -165,7 +165,7 @@ test("shorts progress listeners rebind when deferred videos mount", () => {
 test("shorts paused overlay follows native video playback events", () => {
   assert.match(
     shortsPageSource,
-    /const handlePlay = \(\) => \{[\s\S]*?if \(isVideoPausedByUser\(index\)\) \{[\s\S]*?video\.pause\(\);[\s\S]*?setPaused\(true\);[\s\S]*?return;[\s\S]*?setPaused\(false\);/
+    /const handlePlay = \(\) => \{[\s\S]*?if \(isPausedByUser\(\)\) \{[\s\S]*?video\.pause\(\);[\s\S]*?setPaused\(true\);[\s\S]*?return;[\s\S]*?setPaused\(false\);/
   );
   assert.match(
     shortsPageSource,
@@ -179,35 +179,23 @@ test("shorts paused overlay follows native video playback events", () => {
 
 test("shorts preserves a user pause while the active video is still loading", () => {
   assert.match(shortsPageSource, /const userPausedIndexRef = useRef<number \| null>\(null\);/);
-  assert.match(shortsPageSource, /const \[, setUserPausedIndexState\] = useState<number \| null>\(null\);/);
   assert.match(shortsPageSource, /const setUserPausedForIndex = useCallback/);
   assert.match(
     shortsPageSource,
-    /const canContinue = \(\) =>[\s\S]*?!isVideoPausedByUser\(index\);/
+    /const canContinue = \(\) =>[\s\S]*?!isPausedByUser\(\);/
   );
+  // 键盘空格的暂停/恢复语义见 shortsKeyboard.test.ts。
   assert.match(
-    useShortsKeyboardSource,
-    /isVideoPausedByUser\(target\.videoIndex\) \|\|\s*\(target\.video\.paused && target\.video\.readyState >= 3\)/
-  );
-  assert.match(
-    useShortsKeyboardSource,
-    /setUserPausedForIndex\(target\.videoIndex, false\);\s*target\.video\.play\(\)\.catch/
-  );
-  assert.match(
-    useShortsKeyboardSource,
-    /setUserPausedForIndex\(target\.videoIndex, true\);\s*target\.video\.pause\(\);/
+    shortsPageSource,
+    /const shouldResume =\s*isPausedByUser\(\) \|\| \(video\.paused && !isBuffering\);/
   );
   assert.match(
     shortsPageSource,
-    /const shouldResume =\s*isVideoPausedByUser\(index\) \|\| \(video\.paused && !isBuffering\);/
+    /setPausedByUser\(true\);\s*video\.pause\(\);\s*setPaused\(true\);\s*setIsBuffering\(false\);/
   );
   assert.match(
     shortsPageSource,
-    /onUserPausedChange\(index, true\);\s*video\.pause\(\);\s*setPaused\(true\);\s*setIsBuffering\(false\);/
-  );
-  assert.match(
-    shortsPageSource,
-    /const handleCanPlay = \(\) => \{[\s\S]*?if \(isActive && isVideoPausedByUser\(index\)\) \{[\s\S]*?video\.pause\(\);[\s\S]*?setPaused\(true\);[\s\S]*?return;/
+    /const handleCanPlay = \(\) => \{[\s\S]*?if \(isActive && isPausedByUser\(\)\) \{[\s\S]*?video\.pause\(\);[\s\S]*?setPaused\(true\);[\s\S]*?return;/
   );
 });
 
@@ -228,7 +216,7 @@ test("shorts retries interrupted active playback and exposes rejected autoplay",
   // \u81ea\u52a8\u64ad\u653e\u88ab\u62d2\u540e\u7684\u9996\u6b21\u70b9\u51fb\uff1a\u5224\u5b9a\u4e0e\u6062\u590d\u5728 slide\uff0c\u5206\u53d1\u65f6\u5e8f\u5728\u624b\u52bf hook
   assert.match(
     shortsPageSource,
-    /function shouldResumeImmediatelyOnClick\(\) \{[\s\S]*?video\?\.paused && !isBuffering && !playbackFailure &&\s*!isVideoPausedByUser\(index\)/
+    /function shouldResumeImmediatelyOnClick\(\) \{[\s\S]*?video\?\.paused && !isBuffering && !playbackFailure &&\s*!isPausedByUser\(\)/
   );
   assert.match(
     shortsPageSource,
@@ -323,18 +311,7 @@ test("shorts double space likes without toggling playback", () => {
     useShortsKeyboardSource,
     /pendingSpaceTimer = window\.setTimeout\(\(\) => \{[\s\S]*?toggleKeyboardPlayback\(target\);[\s\S]*?SHORTS_KEYBOARD_DOUBLE_SPACE_MS/
   );
-  assert.match(
-    useShortsKeyboardSource,
-    /pendingSpaceTimer !== null &&[\s\S]*?pendingSpaceTarget\.video === activeVideo[\s\S]*?clearKeyboardSpaceTimer\(\);[\s\S]*?likeActiveVideo\(videoIndex\);[\s\S]*?return;/
-  );
-  assert.match(
-    useShortsKeyboardSource,
-    /const keyboardLikeHandlersRef = useRef<Map<number, \(\) => void>>\(new Map\(\)\);/
-  );
-  assert.match(
-    useShortsKeyboardSource,
-    /const likeActiveVideo = \(videoIndex: number\) => \{\s*keyboardLikeHandlersRef\.current\.get\(videoIndex\)\?\.\(\);/
-  );
+  // 双空格点赞、按 feed key 认人的语义见 shortsKeyboard.test.ts。
   assert.match(
     shortsPageSource,
     /registerKeyboardLikeHandler=\{registerKeyboardLikeHandler\}/
@@ -345,7 +322,7 @@ test("shorts double space likes without toggling playback", () => {
   );
   assert.match(
     shortsPageSource,
-    /registerKeyboardLikeHandler\(index, handleKeyboardLike\);[\s\S]*?registerKeyboardLikeHandler\(index, null\);/
+    /registerKeyboardLikeHandler\(itemKey, handleKeyboardLike\);[\s\S]*?registerKeyboardLikeHandler\(itemKey, null\);/
   );
   assert.doesNotMatch(shortsPageSource + useShortsKeyboardSource, /new MouseEvent\("click"/);
   assert.match(shortsPageSource, /data-shorts-like=""/);
@@ -365,7 +342,7 @@ test("shorts keeps the full heart animation when reduced motion is enabled", () 
 test("desktop left-key seeking and held right-key playback keep distinct semantics", () => {
   assert.match(
     useShortsKeyboardSource,
-    /type ShortsKeyboardSeekPreview = \{[\s\S]*?videoIndex: number;[\s\S]*?currentTime: number;[\s\S]*?duration: number;/
+    /type ShortsKeyboardSeekPreview = \{[\s\S]*?itemKey: string;[\s\S]*?currentTime: number;[\s\S]*?duration: number;/
   );
   assert.match(
     useShortsKeyboardSource,
@@ -373,7 +350,7 @@ test("desktop left-key seeking and held right-key playback keep distinct semanti
   );
   assert.match(
     useShortsKeyboardSource,
-    /setKeyboardSeekPreview\(\{ videoIndex, currentTime, duration \}\);/
+    /setKeyboardSeekPreview\(\{ itemKey, currentTime, duration \}\);/
   );
   assert.match(
     useShortsKeyboardSource,
@@ -404,11 +381,11 @@ test("desktop left-key seeking and held right-key playback keep distinct semanti
   );
   assert.match(
     useShortsKeyboardSource,
-    /keyboardRightPressTimer = window\.setTimeout\([\s\S]*?target\.video\.playbackRate = 2;[\s\S]*?setKeyboardFastPlaybackIndex\(target\.videoIndex\);[\s\S]*?SHORTS_KEYBOARD_FAST_PLAYBACK_DELAY_MS/
+    /keyboardRightPressTimer = window\.setTimeout\([\s\S]*?target\.video\.playbackRate = 2;[\s\S]*?setKeyboardFastPlaybackKey\(target\.itemKey\);[\s\S]*?SHORTS_KEYBOARD_FAST_PLAYBACK_DELAY_MS/
   );
   assert.match(
     useShortsKeyboardSource,
-    /if \(target\.fastPlaybackActive\) \{[\s\S]*?restoreShortsPlaybackRate\(target\.video\);[\s\S]*?setKeyboardFastPlaybackIndex\(null\);/
+    /if \(target\.fastPlaybackActive\) \{[\s\S]*?restoreShortsPlaybackRate\(target\.video\);[\s\S]*?setKeyboardFastPlaybackKey\(null\);/
   );
   assert.match(
     useShortsKeyboardSource,
@@ -433,11 +410,11 @@ test("desktop left-key seeking and held right-key playback keep distinct semanti
   );
   assert.match(
     shortsPageSource,
-    /keyboardSeekPreview=\{[\s\S]*?keyboardSeekPreview\?\.videoIndex === index[\s\S]*?\? keyboardSeekPreview/
+    /keyboardSeekPreview=\{[\s\S]*?keyboardSeekPreview\?\.itemKey === itemKey[\s\S]*?\? keyboardSeekPreview/
   );
   assert.match(
     shortsPageSource,
-    /keyboardFastPlayback=\{keyboardFastPlaybackIndex === index\}/
+    /keyboardFastPlayback=\{keyboardFastPlaybackKey === itemKey\}/
   );
   assert.match(
     shortsPageSource,
@@ -445,7 +422,7 @@ test("desktop left-key seeking and held right-key playback keep distinct semanti
   );
   assert.match(
     shortsPageSource,
-    /const writeProgressDisplay = useCallback\([\s\S]*?progressTrackRef\.current\?\.style\.setProperty\(\s*"--progress-pct",\s*`\$\{ratio \* 100\}%`\s*\);/
+    /const writeProgressDisplay = useCallback\([\s\S]*?progressTrackRef\.current\?\.style\.setProperty\("--progress", String\(ratio\)\);/
   );
   assert.match(
     shortsPageSource,
@@ -509,13 +486,10 @@ test("shorts loading spinner covers video buffering and initial feed loading", (
     shortsCssSource,
     /\.shorts-slide__loading-spinner\s*\{[\s\S]*width:\s*var\(--shorts-spinner-size,\s*30px\);[\s\S]*height:\s*var\(--shorts-spinner-size,\s*30px\);[\s\S]*border:\s*3px solid rgba\(255,\s*255,\s*255,\s*0\.24\);[\s\S]*border-top-color:\s*rgba\(255,\s*255,\s*255,\s*0\.98\);[\s\S]*border-radius:\s*50%;/
   );
+  // 旋转关键帧与其他页面共用 shared-state.css 里的 spin。
   assert.match(
     shortsCssSource,
-    /animation:\s*shorts-spinner-rotate 0\.8s linear infinite;/
-  );
-  assert.match(
-    shortsCssSource,
-    /@keyframes shorts-spinner-rotate\s*\{[\s\S]*to\s*\{\s*transform:\s*rotate\(360deg\);/
+    /animation:\s*spin 0\.8s linear infinite;/
   );
   assert.match(shortsCssSource, /\.shorts-loading \.shorts-slide__loading-spinner\s*\{/);
   const bufferingRule =
@@ -536,26 +510,11 @@ test("shorts prepares the next video lightly until the active buffer is healthy"
   assert.match(shortsPageSource, /const \[activeReadyForPreload, setActiveReadyForPreload\] = useState\(false\);/);
   assert.match(mediaBufferSource, /const ACTIVE_PRELOAD_BUFFER_SECONDS = 12;/);
   assert.match(mediaBufferSource, /export const PRELOAD_AHEAD_COUNT = 2;/);
-  // 下一条始终保留 src，但只有授权后才能和更后面的条目一起用 auto。
+  // 每一屏挂载 / 绑定 / 预载档位的规则在 planSlideMedia，行为用例见
+  // shortsMediaBuffer.test.ts；这里只钉住页面按它渲染。
   assert.match(
     shortsPageSource,
-    /const shouldPrepareNext =\s*!useIOSSharedVideo && preloadOffset === 1;/
-  );
-  assert.match(
-    shortsPageSource,
-    /const preloadOffset = index - activeIndex;[\s\S]*?preloadOffset > 0 &&[\s\S]*?preloadOffset <= getPreloadAheadCount\(activeReadyForPreload\);/
-  );
-  assert.doesNotMatch(
-    shortsPageSource,
-    /const shouldPreload =\s*!useIOSSharedVideo &&\s*activeReadyForPreload/
-  );
-  assert.match(
-    shortsPageSource,
-    /const shouldLoad =\s*isActiveSlide \|\|\s*shouldPrepareNext \|\|\s*shouldPreload \|\|\s*shouldRetainCached;/
-  );
-  assert.match(
-    shortsPageSource,
-    /const shouldEagerLoad = isActiveSlide \|\| shouldPreload;/
+    /const preloadOffset = index - activeIndex;[\s\S]*?\} = planSlideMedia\(\{\s*offset: preloadOffset,[\s\S]*?activeReadyForPreload,[\s\S]*?cached: cacheableSourceIds\.has\(item\.id\),/
   );
   assert.match(
     shortsPageSource,
@@ -568,9 +527,9 @@ test("shorts prepares the next video lightly until the active buffer is healthy"
   // 换算规则见 "shorts sizes the preload gate by bitrate" 那条。
   assert.match(
     shortsPageSource,
-    /if \(videoHasComfortableBuffer\(currentVideo, preloadBufferSeconds\)\) \{\s*onActiveReadyForPreload\(index\);/
+    /if \(videoHasComfortableBuffer\(currentVideo, preloadBufferSeconds\)\) \{\s*readyForPreload\(\);/
   );
-  assert.match(shortsPageSource, /if \(isActive\) onActiveNeedsPriority\(index\);/);
+  assert.match(shortsPageSource, /if \(isActive\) needsPriority\(\);/);
   assert.match(shortsPageSource, /video\.addEventListener\("progress", handleProgress\);/);
   assert.match(shortsPageSource, /src=\{shouldLoad && !item\.playbackUrl \? item\.videoSrc : undefined\}/);
   assert.match(shortsPageSource, /video\.removeAttribute\("src"\)/);
@@ -584,7 +543,7 @@ test("shorts preload grant uses high/low watermark hysteresis", () => {
   assert.match(mediaBufferSource, /const ACTIVE_PRELOAD_KEEP_SECONDS = 4;/);
   assert.match(
     shortsPageSource,
-    /\} else if \(videoBufferIsCritical\(currentVideo, preloadKeepSeconds\)\) \{[\s\S]*?onActiveNeedsPriority\(index\);/
+    /\} else if \(videoBufferIsCritical\(currentVideo, preloadKeepSeconds\)\) \{[\s\S]*?needsPriority\(\);/
   );
   assert.match(
     mediaBufferSource,
@@ -731,12 +690,14 @@ test("shorts hide action uses a concise label and advances by stable feed key", 
     shortsPageSource,
     /已选择不再展示，正在滑至下一首/
   );
-  // 稳定 key 不受长会话队列裁剪后的 index 平移影响；依赖仍须是空数组，
-  // 避免每次取批都把 ShortsSlide 的 memo 整片击穿。
+  // 稳定 key 不受长会话队列裁剪后的 index 平移影响；依赖只有稳定的
+  // goToSlide，避免每次取批都把 ShortsSlide 的 memo 整片击穿。跳下一条和
+  // 键盘、翻页按钮一样经由翻页器（行为见 shortsSwipePagerFlow.test.ts）。
   assert.match(
     shortsPageSource,
-    /const handleHideSuccess = useCallback\(\(itemKey: string\) => \{[\s\S]*?element\.dataset\.feedKey === itemKey[\s\S]*?current\?\.nextElementSibling[\s\S]*?nextSlide\.scrollIntoView\(\{ behavior: "smooth" \}\);[\s\S]*?\}, \[\]\);/
+    /const handleHideSuccess = useCallback\(\(itemKey: string\) => \{[\s\S]*?element\.dataset\.feedKey === itemKey[\s\S]*?adjacentShortsSlide\(current \?\? null, 1\);\s*if \(nextSlide\) goToSlide\(nextSlide\);[\s\S]*?\}, \[goToSlide\]\);/
   );
+  assert.doesNotMatch(shortsPageSource, /scrollIntoView/);
 });
 
 test("shorts creates and copies the existing one-time video share", () => {
@@ -786,17 +747,9 @@ test("shorts keeps buffered sources inside a four video window", () => {
   );
   assert.match(
     shortsPageSource,
-    /const isInCacheWindow =\s*index >= videoWindow\.start && index <= videoWindow\.end;/
+    /inCacheWindow:\s*index >= videoWindow\.start && index <= videoWindow\.end,/
   );
-  assert.match(
-    shortsPageSource,
-    /const shouldMount =\s*isActiveSlide \|\|\s*\(!useIOSSharedVideo &&\s*\(isInCacheWindow \|\| shouldPrepareNext \|\| shouldPreload\)\);/
-  );
-  // 视频窗口内已缓冲过的视频都保留 src，来回切换均复用缓存
-  assert.match(
-    shortsPageSource,
-    /const shouldRetainCached =\s*!useIOSSharedVideo &&\s*isInCacheWindow &&\s*!isActiveSlide &&\s*cacheableSourceIds\.has\(item\.id\);/
-  );
+  // 视频窗口内已缓冲过的视频都保留 src，来回切换均复用缓存（planSlideMedia）
   // 窗口内视频一旦 canplay 就标记可复用，快速划走的视频回滑也有缓存
   assert.match(
     shortsPageSource,
@@ -879,10 +832,7 @@ test("shorts reuses one persistent media element across iOS slides", () => {
   assert.match(shortsPlatformSource, /\\biPhone\\b\|\\biPad\\b\|\\biPod\\b/);
   assert.match(shortsPlatformSource, /navigator\.platform === "MacIntel" && navigator\.maxTouchPoints > 1/);
   // iOS 走共享元素分支，完全不参与上面那套 <video> 预载
-  assert.match(
-    shortsPageSource,
-    /const shouldPreload =\s*!useIOSSharedVideo &&/
-  );
+  assert.match(shortsPageSource, /usesSharedVideo: useIOSSharedVideo,/);
   assert.match(shortsPageSource, /const iosSharedVideoRef = useRef<HTMLVideoElement \| null>\(null\);/);
   assert.match(shortsPageSource, /if \(!video\) \{\s*video = document\.createElement\("video"\);/);
   assert.match(shortsPageSource, /slot\.appendChild\(video\);/);
@@ -968,10 +918,20 @@ test("iOS standby preload has a kill switch for on-device A/B", () => {
     shortsPageSource,
     /const \[iosStandbyPreloadDisabled\] = useState\(isIOSStandbyPreloadDisabled\);/
   );
-  // The element itself must not even be created when the switch is off.
+  // The element itself must not even be created when the switch is off. The
+  // promote effect only creates it; its preload tier belongs to the preload
+  // effect, so re-running promotion (e.g. on a mute toggle) cannot downgrade it.
   assert.match(
     shortsPageSource,
-    /if \(!iosStandbyPreloadDisabled\) \{\s*applyIOSVideoRole\(acquireIOSVideoElement\(iosStandbyVideoRef\), "standby"\);/
+    /if \(!iosStandbyPreloadDisabled && !iosStandbyVideoRef\.current\) \{\s*applyIOSVideoRole\(acquireIOSVideoElement\(iosStandbyVideoRef\), "standby"\);/
+  );
+  const promoteStart = shortsPageSource.indexOf("// 当前屏：优先把已经预载好这一条的备用元素提升为播放元素");
+  const promoteEnd = shortsPageSource.indexOf("// 下一屏：用备用元素提前准备下一条视频。", promoteStart);
+  assert.ok(promoteStart >= 0 && promoteEnd > promoteStart);
+  assert.doesNotMatch(
+    shortsPageSource.slice(promoteStart, promoteEnd),
+    /\bmuted,\n/,
+    "a mute toggle must not re-run the promote effect"
   );
 });
 
@@ -1056,7 +1016,7 @@ test("iOS loops restart under app control and progress follows presented frames"
     "const confirmPresentedPlayback = useCallback("
   );
   const confirmationEnd = shortsPageSource.indexOf(
-    "// 是否已点过赞。真正的防重",
+    "// 是否已点过赞。双击时据此去重",
     confirmationStart
   );
   assert.ok(confirmationStart >= 0 && confirmationEnd > confirmationStart);
@@ -1077,10 +1037,16 @@ test("iOS loops restart under app control and progress follows presented frames"
   );
 
   // The ordinary per-slide videos keep native looping; only the iOS shared
-  // element uses the controlled restart path.
+  // element uses the controlled restart path. useShortsPlaybackPreferences is
+  // the single owner of `loop` (it also pairs it with continuous playback), so
+  // the JSX element no longer sets it a second time.
+  const slideVideo = /<video\s+ref=\{setRef\}[\s\S]*?\/>/.exec(shortsPageSource);
+  assert.ok(slideVideo, "per-slide video element should be present");
+  assert.match(slideVideo[0], /autoPlay=\{isActive\}[\s\S]*?playsInline[\s\S]*?muted=\{muted\}/);
+  assert.doesNotMatch(slideVideo[0], /\bloop=/);
   assert.match(
-    shortsPageSource,
-    /<video[\s\S]*?autoPlay=\{isActive\}[\s\S]*?playsInline[\s\S]*?loop[\s\S]*?muted=\{muted\}/
+    readFileSync(new URL("../src/shorts/useShortsPlaybackPreferences.ts", import.meta.url), "utf8"),
+    /video\.loop = !autoAdvance \|\| !canGoNext;/
   );
 });
 
@@ -1091,7 +1057,7 @@ test("shorts buffering state survives stalled and self-heals on real progress", 
   const stalledBlock = shortsPageSource.slice(stalledStart, stalledEnd);
   assert.doesNotMatch(stalledBlock, /setIsBuffering\(true\)/);
   assert.doesNotMatch(stalledBlock, /hasStartedPlayingRef\.current = false/);
-  assert.match(stalledBlock, /onActiveNeedsPriority\(index\);/);
+  assert.match(stalledBlock, /needsPriority\(\);/);
 
   const timeStart = shortsPageSource.indexOf("const handleTime = () => {");
   const timeEnd = shortsPageSource.indexOf("const handleWaiting = () => {", timeStart);
@@ -1207,7 +1173,7 @@ test("shorts grants preload only after the active video really started", () => {
   );
   assert.match(
     shortsPageSource,
-    /currentVideo\.paused \|\|[\s\S]*?!hasStartedPlayingRef\.current \|\|[\s\S]*?onActiveNeedsPriority\(index\);/
+    /currentVideo\.paused \|\|[\s\S]*?!hasStartedPlayingRef\.current \|\|[\s\S]*?needsPriority\(\);/
   );
 });
 
@@ -1215,14 +1181,9 @@ test("shorts sound toggle limits playback recovery to the iOS media path", () =>
   assert.match(shortsPageSource, /function applyVideoMutedState/);
   assert.doesNotMatch(shortsPageSource, /onFirstPointer/);
   assert.doesNotMatch(shortsPageSource, /currentPage\.addEventListener\("pointerdown"/);
-  assert.match(
-    shortsPageSource,
-    /const stopHeaderControlPropagation = useCallback\(\(e: React\.SyntheticEvent\) => \{\s*e\.stopPropagation\(\);/
-  );
-  assert.match(shortsPageSource, /onPointerDownCapture=\{stopHeaderControlPropagation\}/);
-  assert.match(shortsPageSource, /onTouchStartCapture=\{stopHeaderControlPropagation\}/);
-  assert.match(shortsPageSource, /onPointerDown=\{stopHeaderControlPropagation\}/);
-  assert.match(shortsPageSource, /onTouchStart=\{stopHeaderControlPropagation\}/);
+  // 顶栏在 .shorts-feed 之外，手势监听又都挂在 window 捕获阶段，按下事件
+  // 上的 stopPropagation 拦不住任何东西，不再保留。
+  assert.doesNotMatch(shortsPageSource, /stopHeaderControlPropagation/);
   assert.match(shortsPageSource, /function normalizeVideoPlaybackRate/);
   assert.match(shortsPageSource, /function stabilizeVideoAfterAudioToggle/);
   assert.match(
@@ -1246,7 +1207,12 @@ test("mobile shorts keeps system loudness while desktop exposes volume", () => {
     /<button[\s\S]*?className="shorts-header__icon-btn"[\s\S]*?aria-label=\{muted \? "取消静音" : "静音"\}[\s\S]*?handleMuteButtonClick\(\);/
   );
   assert.doesNotMatch(shortsPageSource, /type="range"/);
-  assert.match(shortsPageSource, /volume=\{isDesktop \? volume : undefined\}/);
+  // 音量条只在当前屏；其余媒体元素由 useShortsMediaVolume 统一同步。
+  assert.match(shortsPageSource, /volume=\{isDesktop && isActiveSlide \? volume : undefined\}/);
+  assert.match(
+    shortsPageSource,
+    /const applyMediaVolume = useShortsMediaVolume\(\s*videoRefs,\s*isDesktop \? volume : undefined\s*\);/
+  );
   assert.doesNotMatch(shortsCssSource, /shorts-header__volume-slider|shorts-header__volume-group/);
   assert.match(
     shortsPageSource,
@@ -1267,14 +1233,13 @@ test("Windows viewport resize keeps the current short aligned", () => {
     shortsPageSource,
     /const viewportResizeAnchorIndexRef = useRef<number \| null>\(null\);/
   );
+  // 页面只负责在尺寸稳定前锁住当前屏；把滚动位置重贴回当前屏由翻页器
+  // 统一负责（行为见 shortsSwipePagerFlow.test.ts），不再有两套几何。
   assert.match(
     shortsPageSource,
-    /const handleViewportResize = \(\) => \{[\s\S]*?viewportResizeAnchorIndexRef\.current = activeIndexRef\.current;[\s\S]*?alignAnchoredSlide\(\);[\s\S]*?window\.requestAnimationFrame/
+    /const handleViewportResize = \(\) => \{[\s\S]*?viewportResizeAnchorIndexRef\.current = activeIndexRef\.current;[\s\S]*?viewportResizeAnchorIndexRef\.current = null;\s*\}, 240\);/
   );
-  assert.match(
-    shortsPageSource,
-    /root\.scrollTop = activeSlide\.offsetTop;/
-  );
+  assert.doesNotMatch(shortsPageSource, /alignAnchoredSlide|root\.scrollTop = activeSlide\.offsetTop/);
   assert.match(
     shortsPageSource,
     /window\.addEventListener\("resize", handleViewportResize\);/
@@ -1307,7 +1272,7 @@ test("shorts sizes the preload gate by bitrate, not by a fixed second count", ()
   );
   assert.match(
     shortsPageSource,
-    /if \(videoHasComfortableBuffer\(currentVideo, preloadBufferSeconds\)\) \{\s*onActiveReadyForPreload\(index\);\s*\} else if \(videoBufferIsCritical\(currentVideo, preloadKeepSeconds\)\) \{/
+    /if \(videoHasComfortableBuffer\(currentVideo, preloadBufferSeconds\)\) \{\s*readyForPreload\(\);\s*\} else if \(videoBufferIsCritical\(currentVideo, preloadKeepSeconds\)\) \{/
   );
   // 水位变化必须重挂媒体 effect，否则闭包里还是旧阈值
   assert.match(
@@ -1387,26 +1352,31 @@ test("shorts keeps per-swipe work off the queue length", () => {
     /standby\.preload = activeReadyForPreload \? "auto" : "metadata";/
   );
   // 拉下字节还不够：video 在真正播放前一直画 poster，要 seek 一次逼出首帧
-  assert.match(shortsPageSource, /warmStandbyFirstFrame\(standby\);/);
-  // 备用元素跟着浏览方向放：只盯 activeIndex+1 的话，往回看每一条都是冷启动
+  // 预热只针对仍处于备用角色的元素：元数据到达前就被提升为播放元素时，
+  // 迟到的监听不能去 seek 正在起播的视频。
+  assert.match(
+    shortsPageSource,
+    /warmStandbyFirstFrame\(standby, \(\) => iosStandbyVideoRef\.current === standby\);/
+  );
+  assert.match(
+    shortsPageSource,
+    /function warmStandbyFirstFrame\(\s*video: HTMLVideoElement,\s*isStandby: \(\) => boolean\s*\)[\s\S]*?standbyFirstFrameWarmups\.get\(video\)\?\.abort\(\);[\s\S]*?if \(!isStandby\(\)\) \{\s*controller\.abort\(\);\s*return;/
+  );
+  assert.match(
+    shortsPageSource,
+    /video\.addEventListener\("loadedmetadata", nudge, \{\s*once: true,\s*signal: controller\.signal,\s*\}\)/
+  );
+  // 备用元素跟着浏览方向放：只盯 activeIndex+1 的话，往回看每一条都是冷启动。
+  // 方向必须在观察器推进 activeIndexRef 之前、拿旧索引比较；之后的 layout
+  // effect 读到的已经是新值，永远比较不出差别（往回看全部冷启动的根因）。
+  // 队列裁剪与重置不经过观察器，因此不会改动方向。
   assert.match(shortsPageSource, /const browseDirectionRef = useRef\(1\);/);
   assert.match(
     shortsPageSource,
-    /browseDirectionRef\.current = activeIndex > previous \? 1 : -1;/
+    /const previousIndex = activeIndexRef\.current;\s*if \(bestIndex >= 0 && bestIndex !== previousIndex\) \{[\s\S]*?browseDirectionRef\.current = bestIndex > previousIndex \? 1 : -1;\s*activeIndexRef\.current = bestIndex;/
   );
-  // 队列裁剪的索引重排不代表浏览方向
-  assert.match(
-    shortsPageSource,
-    /if \(!queueTrimInProgressRef\.current && activeIndex !== previous\)/
-  );
-  assert.match(
-    shortsPageSource,
-    /function warmStandbyFirstFrame\(video: HTMLVideoElement\)/
-  );
-  assert.match(
-    shortsPageSource,
-    /video\.addEventListener\("loadedmetadata", nudge, \{ once: true \}\)/
-  );
+  const directionWrites = shortsPageSource.match(/browseDirectionRef\.current = /g) ?? [];
+  assert.equal(directionWrites.length, 2, "only the observer and the queue reset set the direction");
   assert.match(
     shortsPageSource,
     /useLayoutEffect\(\(\) => \{\s*if \(!useIOSSharedVideo\) return;\s*const item = items\[activeIndex\];/

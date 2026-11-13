@@ -3,7 +3,6 @@ import {
   useEffect,
   useLayoutEffect,
   useRef,
-  useState,
 } from "react";
 import {
   canRestoreScrollY,
@@ -131,7 +130,6 @@ export function useListingScrollRestore({
     sessionRef.current.requestedCount = requestedCount;
   }
   const session = sessionRef.current;
-  const [restoring, setRestoring] = useState(target.scrollY > 0);
 
   const persist = useCallback(() => {
     // Persisting before restoration completes would overwrite the saved target
@@ -177,19 +175,13 @@ export function useListingScrollRestore({
   useEffect(() => {
     if (!active) return;
     const targetScrollY = session.pendingScrollY;
-    if (targetScrollY <= 0) {
-      setRestoring(false);
-      return;
-    }
-    setRestoring(true);
-    if (itemCount === 0) return;
+    if (targetScrollY <= 0 || itemCount === 0) return;
 
     let frame = 0;
     let handle = 0;
     const finish = (restoredScrollY: number) => {
       session.pendingScrollY = 0;
       session.lastScrollY = restoredScrollY;
-      setRestoring(false);
     };
     const attempt = () => {
       if (
@@ -245,7 +237,6 @@ export function useListingScrollRestore({
   }, [active, persist, restoreIdentity, session]);
 
   return {
-    restoring,
     gridRef,
     gridSnapshot: target.feedToken === feedToken ? target.grid : undefined,
   };

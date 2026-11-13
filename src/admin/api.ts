@@ -1,9 +1,43 @@
+import { UnauthorizedError } from "@91/client/http";
 import { client } from "../client";
 import { applyPreviewEnabled } from "../lib/previewSettings";
 import { applyTelegramEnabled } from "./telegram/availability";
 export * from "@91/client/admin";
 export { APIResponseError, UnauthorizedError } from "@91/client/http";
 export type { Theme } from "@91/client/types";
+
+const sessionExpiredListeners = new Set<() => void>();
+
+/** Notifies when any admin request reports an expired session. */
+export function onSessionExpired(listener: () => void) {
+  sessionExpiredListeners.add(listener);
+  return () => { sessionExpiredListeners.delete(listener); };
+}
+
+function reportSessionExpiry(error: unknown): never {
+  if (error instanceof UnauthorizedError) {
+    // The SDK message is a protocol token; callers surface this one directly.
+    error.message = "登录已过期，请重新登录";
+    for (const listener of sessionExpiredListeners) listener();
+  }
+  throw error;
+}
+
+// Every admin request funnels a 401 into one session expiry, so pages and
+// hooks never need their own redirect plumbing.
+function guardSession<T extends object>(methods: T): T {
+  return Object.fromEntries(Object.entries(methods).map(([name, method]) => [
+    name,
+    typeof method === "function"
+      ? (...args: unknown[]) => {
+        const result = method(...args);
+        return result instanceof Promise ? result.catch(reportSessionExpiry) : result;
+      }
+      : method,
+  ])) as T;
+}
+
+const admin = guardSession(client.admin);
 
 export const { login, logout, me, setupStatus, setupAdmin } = client.auth;
 export const {
@@ -93,10 +127,10 @@ export const {
   listTelegramImports,
   cancelImport,
   retryImport
-} = client.admin;
+} = admin;
 
 export async function updateConfigYAML(content: string, version: string) {
-  const result = await client.admin.updateConfigYAML(content, version);
+  const result = await admin.updateConfigYAML(content, version);
   applyPreviewEnabled(result.settings.previewEnabled);
   applyTelegramEnabled(result.settings.telegramEnabled);
   return result;
