@@ -3442,7 +3442,7 @@ body.admin-mobile-nav-open {
     position: fixed;
     top: calc(6px + env(safe-area-inset-top, 0px));
     left: var(--space-2);
-    z-index: calc(var(--z-nav) + 2);
+    z-index: calc(var(--z-overlay) + 2);
     display: inline-grid;
     width: 42px;
     height: 42px;
@@ -3481,11 +3481,13 @@ body.admin-mobile-nav-open {
     transform: scale(0.94);
   }
 
+  /* The mobile drawer is an overlay: it must cover sticky headers, toolbars
+   * and floating actions (nav layer) while staying below dialogs. */
   .admin-mobile-nav-backdrop {
     appearance: none;
     position: fixed;
     inset: 0;
-    z-index: var(--z-nav);
+    z-index: var(--z-overlay);
     display: block;
     width: 100%;
     height: 100%;
@@ -3515,7 +3517,7 @@ body.admin-mobile-nav-open {
     top: 0;
     bottom: 0;
     left: 0;
-    z-index: calc(var(--z-nav) + 1);
+    z-index: calc(var(--z-overlay) + 1);
     width: min(280px, calc(100vw - 24px));
     height: auto;
     min-height: 0;
